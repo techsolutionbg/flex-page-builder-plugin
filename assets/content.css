@@ -1,0 +1,5 @@
+.fpb-root { display: grid; gap: 1.25rem; }
+.fpb-element img { max-width: 100%; height: auto; }
+.fpb-button { display: inline-block; padding: 0.7rem 1.15rem; background: #111827; color: #fff; text-decoration: none; border-radius: 0.4rem; }
+.fpb-element hr { border: 0; border-top: 1px solid currentColor; opacity: 0.25; }
+.fpb-element ul, .fpb-element ol { margin: 0; padding-left: 1.25rem; }
