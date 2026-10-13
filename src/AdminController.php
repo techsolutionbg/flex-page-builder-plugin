@@ -67,6 +67,8 @@ final readonly class AdminController
             $state = 'changed';
             $elements = [['id' => 'imported', 'type' => 'html', 'html' => $html]];
         }
+        $compiler = new HtmlCompiler();
+        $loaded = (new SettingsStore())->load();
 
         return [
             'page' => [
@@ -77,7 +79,8 @@ final readonly class AdminController
             'layouts' => $this->themes->pageTemplates(),
             'pages' => $this->links->options(),
             'elements' => $elements,
-            'defaults' => (new SettingsStore())->get(),
+            'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
+            'button_styles' => $compiler->normalizeButtonStyles($loaded['button_styles']),
             'base_hash' => $hash,
             'state' => $state,
         ];
@@ -98,20 +101,34 @@ final readonly class AdminController
         }
         $compiler = new HtmlCompiler();
         $settings = new SettingsStore();
+        $loaded = $settings->load();
         $elements = $compiler->normalize($body['elements']);
         $defaults = is_array($body['defaults'] ?? null)
             ? $compiler->normalizeDefaults($body['defaults'])
-            : $compiler->normalizeDefaults($settings->get());
-        $previous = $compiler->normalizeDefaults($settings->get());
-        if (is_array($body['defaults'] ?? null) && json_encode($defaults) !== json_encode($previous)) {
-            $settings->save($defaults);
-            (new SitePublisher($store, $gateway, $this->media, $this->links))->republishExcept((int) $page->getAttribute('id'), $defaults);
+            : $compiler->normalizeDefaults($loaded['defaults']);
+        $buttonStyles = is_array($body['button_styles'] ?? null)
+            ? $compiler->normalizeButtonStyles($body['button_styles'])
+            : $compiler->normalizeButtonStyles($loaded['button_styles']);
+        $previousDefaults = $compiler->normalizeDefaults($loaded['defaults']);
+        $previousStyles = $compiler->normalizeButtonStyles($loaded['button_styles']);
+        $defaultsTouched = is_array($body['defaults'] ?? null);
+        $stylesTouched = is_array($body['button_styles'] ?? null);
+        $settingsChanged = ($defaultsTouched && json_encode($defaults) !== json_encode($previousDefaults))
+            || ($stylesTouched && json_encode($buttonStyles) !== json_encode($previousStyles));
+        if ($settingsChanged) {
+            $settings->save($defaults, $buttonStyles);
+            (new SitePublisher($store, $gateway, $this->media, $this->links))->republishExcept(
+                (int) $page->getAttribute('id'),
+                $defaults,
+                $buttonStyles,
+            );
         }
         $compiled = $compiler->compile(
             $elements,
             fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''),
             $defaults,
             fn(int $id): string => $this->links->url($id),
+            $buttonStyles,
         );
         $layout = $this->layout(is_string($body['layout'] ?? null) ? $body['layout'] : '', $page);
         $existing = $store->get((int) $page->getAttribute('id'));

@@ -16,8 +16,11 @@ final class SitePublisher
         private PageLinks $links,
     ) {}
 
-    /** @param array<string, array<string, mixed>> $defaults */
-    public function republishExcept(int $exceptId, array $defaults): void
+    /**
+     * @param array<string, array<string, mixed>> $defaults
+     * @param list<array<string, mixed>> $buttonStyles
+     */
+    public function republishExcept(int $exceptId, array $defaults, array $buttonStyles = []): void
     {
         $compiler = new HtmlCompiler();
         foreach ($this->documents->pageIds() as $pageId) {
@@ -40,6 +43,7 @@ final class SitePublisher
                 fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''),
                 $defaults,
                 fn(int $id): string => $this->links->url($id),
+                $buttonStyles,
             );
             $this->gateway->write($page, $html, $template);
             $fresh = $this->gateway->find($pageId);

@@ -35,6 +35,9 @@
       "styles": [
         "assets/content.css",
         "assets/patterns.css"
+      ],
+      "scripts": [
+        "assets/animate.js"
       ]
     }
   }

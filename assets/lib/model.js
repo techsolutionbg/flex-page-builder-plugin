@@ -28,9 +28,25 @@ export const STYLE_KEYS = [
   'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color',
   'letter_spacing', 'text_transform', 'italic',
   'hover_background', 'hover_color', 'hover_border_color',
+  'animation', 'animation_duration', 'animation_delay', 'hover_animation',
   'color', 'border_width', 'border_color', 'radius', 'padding',
   'padding_top', 'padding_right', 'padding_bottom', 'padding_left',
   'margin_top', 'margin_right', 'margin_bottom', 'margin_left',
+];
+
+export const ENTRANCE_ANIMATIONS = [
+  {id: 'fade', label: 'Избледняване'},
+  {id: 'fade-up', label: 'От долу'},
+  {id: 'fade-down', label: 'От горе'},
+  {id: 'fade-left', label: 'От дясно'},
+  {id: 'fade-right', label: 'От ляво'},
+  {id: 'zoom-in', label: 'Увеличаване'},
+];
+
+export const HOVER_ANIMATIONS = [
+  {id: 'lift', label: 'Повдигане'},
+  {id: 'grow', label: 'Увеличаване'},
+  {id: 'dim', label: 'Затъмняване'},
 ];
 
 export const BREAKPOINTS = ['tablet', 'phone'];
@@ -61,22 +77,68 @@ export const GRADIENTS = [
   {id: 'rose', label: 'Роза', css: 'linear-gradient(135deg,#fda4af,#be123c)'},
 ];
 
-export function applyDefaults(elements, defaults) {
+export function buttonStyleId() {
+  return 'bs_' + Math.random().toString(36).slice(2, 10);
+}
+
+/** Layers that fill missing style keys: named button design, then type defaults. */
+export function styleLayers(element, defaults, buttonStyles) {
+  const layers = [];
+  if (!element) return layers;
+  if (element.type === 'button' && element.button_style_id) {
+    const style = (buttonStyles || []).find((item) => item && item.id === element.button_style_id);
+    if (style) layers.push(style);
+  }
+  if (defaults && defaults[element.type]) layers.push(defaults[element.type]);
+  return layers;
+}
+
+/** Values inherited from design/defaults for keys the element does not set locally. */
+export function inheritedStyle(element, defaults, buttonStyles) {
+  const layers = styleLayers(element, defaults, buttonStyles);
+  const out = {};
+  if (!element || !layers.length) return out;
+  STYLE_KEYS.forEach((key) => {
+    if (element[key] != null) return;
+    for (const layer of layers) {
+      if (layer[key] != null) {
+        out[key] = layer[key];
+        break;
+      }
+    }
+  });
+  return out;
+}
+
+export function hasStyleSource(element, key, defaults, buttonStyles) {
+  if (!element || !key) return false;
+  return styleLayers(element, defaults, buttonStyles).some((layer) => layer[key] != null);
+}
+
+export function applyDefaults(elements, defaults, buttonStyles) {
   return (elements || []).map((element) => {
-    const base = defaults && defaults[element.type] ? defaults[element.type] : {};
+    const layers = styleLayers(element, defaults, buttonStyles);
     const next = {...element};
     STYLE_KEYS.forEach((key) => {
-      if (next[key] == null && base[key] != null) next[key] = base[key];
+      if (next[key] != null) return;
+      for (const layer of layers) {
+        if (layer[key] != null) {
+          next[key] = layer[key];
+          break;
+        }
+      }
     });
     BREAKPOINTS.forEach((device) => {
-      const from = base[device] && typeof base[device] === 'object' ? base[device] : {};
       const own = next[device] && typeof next[device] === 'object' ? {...next[device]} : {};
-      Object.keys(from).forEach((key) => {
-        if (own[key] == null && from[key] != null) own[key] = from[key];
+      layers.forEach((layer) => {
+        const from = layer[device] && typeof layer[device] === 'object' ? layer[device] : {};
+        Object.keys(from).forEach((key) => {
+          if (own[key] == null && from[key] != null) own[key] = from[key];
+        });
       });
       if (Object.keys(own).length) next[device] = own;
     });
-    if (next.children) next.children = applyDefaults(next.children, defaults);
+    if (next.children) next.children = applyDefaults(next.children, defaults, buttonStyles);
     return next;
   });
 }

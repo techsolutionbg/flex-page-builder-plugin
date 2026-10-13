@@ -470,6 +470,132 @@
   color: var(--text-primary, #172118);
 }
 
+.fpb-panel-crumbs,
+.fpb-globals-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1rem 0.2rem;
+  margin: 0.45rem 0.75rem 0.1rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--border, #d4dcd3);
+  border-radius: 0.4rem;
+  background: var(--surface, #fff);
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
+.fpb-panel-crumbs button,
+.fpb-globals-crumbs button {
+  margin: 0;
+  padding: 0.1rem 0.2rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--text-primary, #172118);
+  font: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fpb-panel-crumbs button:hover,
+.fpb-globals-crumbs button:hover {
+  background: var(--surface-hover, #eef2ed);
+}
+
+.fpb-panel-crumbs span[aria-hidden],
+.fpb-globals-crumbs span[aria-hidden] {
+  color: var(--text-muted, #68776b);
+  font-weight: 500;
+  padding: 0;
+}
+
+.fpb-panel-crumb-current,
+.fpb-globals-crumb-current {
+  padding: 0.1rem 0.2rem;
+  color: var(--text-secondary, #46554a);
+  font-weight: 650;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fpb-button-styles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem 0.75rem;
+}
+
+.fpb-button-styles-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.fpb-button-styles-head .fpb-box-title {
+  margin: 0;
+}
+
+.fpb-button-styles-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.fpb-button-styles-list li {
+  display: flex;
+  gap: 0.3rem;
+  align-items: stretch;
+}
+
+.fpb-button-style-item {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: 1px solid var(--control-border, #c7d1c7);
+  border-radius: 0.35rem;
+  background: var(--control-bg, #fff);
+  color: var(--control-text, #172118);
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.fpb-button-style-item:hover {
+  border-color: var(--border-strong, #b9c6ba);
+}
+
+.fpb-button-style-delete {
+  width: 2.1rem;
+  border: 1px solid var(--control-border, #c7d1c7);
+  border-radius: 0.35rem;
+  background: var(--control-bg, #fff);
+  color: var(--text-secondary, #46554a);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fpb-style-name {
+  padding: 0.35rem 0.75rem 0.15rem;
+}
+
+.fpb-style-name label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
 .fpb-palette-list button.has-defaults {
   border-color: var(--control-accent, #203b29);
 }

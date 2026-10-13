@@ -94,7 +94,8 @@ const BOX_SIDES = [
 
 function cssUrl(url) {
   // Single quotes so the value is safe inside a double-quoted HTML style="…" attribute.
-  return "url('" + String(url).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "')";
+  const safe = String(url).replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
+  return 'url(\'' + safe + '\')';
 }
 
 function absoluteUrl(url) {
@@ -237,6 +238,20 @@ function textStyle(element) {
   return parts.length ? ' style="' + parts.join(';') + '"' : '';
 }
 
+function motionClass(element) {
+  const parts = [];
+  const entrance = ['fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in'];
+  const hover = ['lift', 'grow', 'dim'];
+  if (entrance.includes(element.animation)) {
+    // Builder shows the settled state; preview replay strips these and re-runs.
+    parts.push('fpb-anim', 'fpb-anim--' + element.animation, 'is-visible', 'fpb-anim-done');
+  }
+  if (hover.includes(element.hover_animation)) {
+    parts.push('fpb-hover', 'fpb-hover--' + element.hover_animation);
+  }
+  return parts.length ? ' ' + parts.join(' ') : '';
+}
+
 function wrapperStyle(element, media) {
   const parts = [];
   if (element.align === 'center' || element.align === 'right') parts.push('text-align:' + element.align);
@@ -247,6 +262,12 @@ function wrapperStyle(element, media) {
   if (element.type === 'columns') {
     const count = Math.max(1, Math.min(6, (element.children || []).length || Number(element.columns) || 2));
     parts.push('grid-template-columns:repeat(' + count + ',minmax(0,1fr))');
+  }
+  if (['fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in'].includes(element.animation)) {
+    const duration = Math.max(100, Math.min(3000, Number(element.animation_duration) || 600));
+    const delay = Math.max(0, Math.min(3000, Number(element.animation_delay) || 0));
+    parts.push('--fpb-anim-duration:' + duration + 'ms');
+    parts.push('--fpb-anim-delay:' + delay + 'ms');
   }
   return parts.length ? ' style="' + parts.join(';') + '"' : '';
 }
@@ -428,11 +449,11 @@ function leafHtml(element, selected, media, pages) {
   } else {
     inner = '<hr>';
   }
-  return '<div class="fpb-element' + selectedClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="' + element.type + '"' + wrapperStyle(element, media) + '>' + dragHandle() + inner + '</div>';
+  return '<div class="fpb-element' + selectedClass + motionClass(element) + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="' + element.type + '"' + wrapperStyle(element, media) + '>' + dragHandle() + inner + '</div>';
 }
 
 function sectionHtml(element, selected, media, pages, nested) {
-  const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element);
+  const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element) + motionClass(element);
   const wideClass = element.full_width ? ' fpb-section--full' : (nested ? ' fpb-section--boxed' : '');
   const children = element.children || [];
   const body = children.length
@@ -442,19 +463,19 @@ function sectionHtml(element, selected, media, pages, nested) {
 }
 
 function columnsHtml(element, selected, media, pages) {
-  const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element);
+  const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element) + motionClass(element);
   const cols = element.children || [];
   const cells = cols.map((column) => {
     const body = (column.children || []).length
       ? column.children.map((child) => leafHtml(child, selected, media, pages)).join('')
       : '<p class="fpb-empty">Пуснете елемент</p>';
-    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + hiddenClass(column) + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle() + '<div class="fpb-column-body">' + body + '</div></div>';
+    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + hiddenClass(column) + motionClass(column) + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle() + '<div class="fpb-column-body">' + body + '</div></div>';
   }).join('');
   return '<div class="fpb-columns' + selectedClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="columns"' + wrapperStyle(element, media) + '>' + dragHandle() + cells + '</div>';
 }
 
-export function compile(elements, selected, media, defaults, pages) {
-  const tree = applyDefaults(elements, defaults);
+export function compile(elements, selected, media, defaults, pages, buttonStyles) {
+  const tree = applyDefaults(elements, defaults, buttonStyles);
   if (!tree.length) {
     return '<p class="fpb-empty">Добавете секция или пуснете елемент тук.</p>';
   }

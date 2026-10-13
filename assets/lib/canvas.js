@@ -116,11 +116,42 @@ function markSelected(slot, selected) {
   current?.classList.add('is-selected');
 }
 
+function animMs(node, name, fallback) {
+  const raw = node.ownerDocument.defaultView.getComputedStyle(node).getPropertyValue(name).trim();
+  const value = parseFloat(raw);
+  if (!Number.isFinite(value)) return fallback;
+  if (raw.endsWith('s') && !raw.endsWith('ms')) return Math.round(value * 1000);
+  return Math.round(value);
+}
+
+function replayEntrance(node) {
+  if (!node?.classList.contains('fpb-anim')) return;
+  if (node._fpbAnimTimer) {
+    clearTimeout(node._fpbAnimTimer);
+    node._fpbAnimTimer = 0;
+  }
+  node.classList.remove('is-visible', 'fpb-anim-done');
+  const previous = node.style.transition;
+  node.style.transition = 'none';
+  void node.offsetWidth;
+  node.style.transition = previous;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      node.classList.add('is-visible');
+      const wait = animMs(node, '--fpb-anim-duration', 600) + animMs(node, '--fpb-anim-delay', 0);
+      node._fpbAnimTimer = setTimeout(() => {
+        node.classList.add('fpb-anim-done');
+        node._fpbAnimTimer = 0;
+      }, Math.max(0, wait + 32));
+    });
+  });
+}
+
 export function createCanvas(host) {
   const {React} = host;
   const h = React.createElement;
 
-  return function Canvas({frameHtml, markup, selected, onSelect, onInsert, onMove, onText, dragKind}) {
+  return function Canvas({frameHtml, markup, selected, motionPreview = '', onSelect, onInsert, onMove, onText, dragKind}) {
     const frame = React.useRef(null);
     const select = React.useRef(onSelect);
     const insert = React.useRef(onInsert);
@@ -132,6 +163,7 @@ export function createCanvas(host) {
     const textRedo = React.useRef([]);
     const paintNow = React.useRef(() => {});
     const selectedRef = React.useRef(selected);
+    const lastMotion = React.useRef('');
     select.current = onSelect;
     insert.current = onInsert;
     move.current = onMove;
@@ -273,6 +305,14 @@ export function createCanvas(host) {
             link.href = source ? source.href : new URL('../patterns.css', import.meta.url).href;
             doc.head.appendChild(link);
           }
+          if (!doc.getElementById('fpb-content-css')) {
+            const source = document.querySelector('link[rel="stylesheet"][href*="content.css"]');
+            const link = doc.createElement('link');
+            link.id = 'fpb-content-css';
+            link.rel = 'stylesheet';
+            link.href = source ? source.href : new URL('../content.css', import.meta.url).href;
+            doc.head.appendChild(link);
+          }
           if (!doc.querySelector('base')) {
             const base = doc.createElement('base');
             base.href = location.origin + '/';
@@ -306,6 +346,24 @@ export function createCanvas(host) {
       paint();
       return () => node.removeEventListener('load', paint);
     }, [markup, frameHtml]);
+
+    React.useEffect(() => {
+      if (!motionPreview) {
+        lastMotion.current = '';
+        return;
+      }
+      if (motionPreview === lastMotion.current) return;
+      lastMotion.current = motionPreview;
+      const run = () => {
+        const slot = frame.current?.contentDocument?.querySelector('[data-flex-page-builder-slot]');
+        const preview = selected
+          ? slot?.querySelector('[data-fpb-id="' + CSS.escape(selected) + '"].fpb-anim')
+          : null;
+        if (preview) replayEntrance(preview);
+      };
+      // Wait one frame so markup paint (same render) can land first.
+      requestAnimationFrame(run);
+    }, [motionPreview, selected]);
 
     return h('iframe', {ref: frame, className: 'fpb-frame', title: 'Преглед на страницата'});
   };

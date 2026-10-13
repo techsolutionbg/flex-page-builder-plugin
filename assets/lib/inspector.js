@@ -1,12 +1,12 @@
 import {colorValue, gradientCss} from './compile.js';
-import {deviceHas, devicePatch, deviceView, elementLabel, GRADIENTS, PATTERNS, resizeColumns, WIDTHS} from './model.js';
+import {deviceHas, devicePatch, deviceView, elementLabel, ENTRANCE_ANIMATIONS, GRADIENTS, hasStyleSource, HOVER_ANIMATIONS, inheritedStyle, PATTERNS, resizeColumns, WIDTHS} from './model.js';
 
 export function createInspector(host) {
   const {React} = host;
   const C = host.components;
   const h = React.createElement;
 
-  return function Inspector({element, onChange, onRemove, onMove, onAddColumns, mode, device = 'desktop', onDevice, pages = []}) {
+  return function Inspector({element, onChange, onRemove, onMove, onAddColumns, onPreviewAnimation, mode, device = 'desktop', onDevice, pages = [], buttonStyles = [], defaults: typeDefaults = {}}) {
     const [collapsed, setCollapsed] = React.useState(() => {
       try {
         const stored = JSON.parse(sessionStorage.getItem('fpb-inspector-collapsed') || '{}');
@@ -22,29 +22,44 @@ export function createInspector(host) {
         return next;
       });
     };
-    const defaults = mode === 'defaults';
+    const isDefaults = mode === 'defaults';
     if (!element) {
-      return h('p', {className: 'fpb-muted'}, defaults
+      return h('p', {className: 'fpb-muted'}, isDefaults
         ? 'Изберете тип елемент, за да зададете вид по подразбиране за всички страници.'
         : 'Изберете елемент от платното, за да промените текста, изображението или връзката му.');
     }
     const view = deviceView(element, device);
     const desktop = device === 'desktop';
-    const inheritLabel = desktop ? 'По подразбиране' : 'От бюро';
+    const inherited = isDefaults ? {} : inheritedStyle(element, typeDefaults, buttonStyles);
+    const fromDesign = !isDefaults && element.type === 'button' && !!element.button_style_id;
+    const inheritLabel = !desktop ? 'От бюро' : (fromDesign ? 'От дизайна' : 'По подразбиране');
     const set = (patch) => onChange({...element, ...patch});
     const setStyle = (patch) => onChange(devicePatch(element, device, patch));
+    const isOverridden = (key) => {
+      if (!key) return false;
+      if (deviceHas(element, device, key)) return true;
+      if (!desktop || isDefaults) return false;
+      return view[key] != null && hasStyleSource(element, key, typeDefaults, buttonStyles);
+    };
+    const placeholderFor = (key, fallback) => {
+      if (view[key] != null) return fallback || inheritLabel;
+      if (inherited[key] != null) return String(inherited[key]);
+      return fallback || inheritLabel;
+    };
+    const displayValue = (key) => (view[key] != null ? view[key] : inherited[key]);
     const field = (label, child, key) => {
-      const over = key && deviceHas(element, device, key);
+      const over = key && isOverridden(key);
       return h('label', {className: 'fpb-field' + (over ? ' is-override' : '')},
         h('span', null, label, over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: (event) => { event.preventDefault(); setStyle({[key]: null}); }}, 'Наследи') : null),
         child);
     };
-    const sizeField = field('Размер на текста (px)', h(C.Input, {type: 'number', min: 8, max: 160, value: view.size == null ? '' : String(view.size), placeholder: inheritLabel, onChange: (event) => setStyle({size: event.target.value === '' ? null : Number(event.target.value)})}), 'size');
-    const lineField = field('Междуредие', h(C.Input, {type: 'number', min: 0.8, max: 3, step: 0.1, value: view.line_height == null ? '' : String(view.line_height), placeholder: inheritLabel, onChange: (event) => setStyle({line_height: event.target.value === '' ? null : Number(event.target.value)})}), 'line_height');
+    const sizeField = field('Размер на текста (px)', h(C.Input, {type: 'number', min: 8, max: 160, value: view.size == null ? '' : String(view.size), placeholder: placeholderFor('size'), onChange: (event) => setStyle({size: event.target.value === '' ? null : Number(event.target.value)})}), 'size');
+    const lineField = field('Междуредие', h(C.Input, {type: 'number', min: 0.8, max: 3, step: 0.1, value: view.line_height == null ? '' : String(view.line_height), placeholder: placeholderFor('line_height'), onChange: (event) => setStyle({line_height: event.target.value === '' ? null : Number(event.target.value)})}), 'line_height');
     const weightField = field('Дебелина', h('select', {value: view.weight == null ? '' : String(view.weight), onChange: (event) => setStyle({weight: event.target.value === '' ? null : Number(event.target.value)})},
-      [h('option', {value: ''}, inheritLabel), ...[300, 400, 500, 600, 700, 800].map((weight) => h('option', {key: weight, value: String(weight)}, String(weight)))]), 'weight');
-    const align = view.align === 'center' || view.align === 'right' ? view.align : 'left';
-    const alignField = h('div', {className: 'fpb-align' + (deviceHas(element, device, 'align') ? ' is-override' : ''), role: 'group', 'aria-label': 'Подравняване'},
+      [h('option', {value: ''}, inherited.weight != null ? inheritLabel + ' (' + inherited.weight + ')' : inheritLabel), ...[300, 400, 500, 600, 700, 800].map((weight) => h('option', {key: weight, value: String(weight)}, String(weight)))]), 'weight');
+    const alignEffective = displayValue('align');
+    const align = alignEffective === 'center' || alignEffective === 'right' ? alignEffective : 'left';
+    const alignField = h('div', {className: 'fpb-align' + (isOverridden('align') ? ' is-override' : ''), role: 'group', 'aria-label': 'Подравняване'},
       [['left', 'Ляво', 'M4 6h16M4 12h10M4 18h16'], ['center', 'Център', 'M4 6h16M7 12h10M4 18h16'], ['right', 'Дясно', 'M4 6h16M10 12h10M4 18h16']].map(([value, label, path]) => h('button', {
         key: value,
         type: 'button',
@@ -53,20 +68,20 @@ export function createInspector(host) {
         'aria-pressed': align === value,
         onClick: () => setStyle({align: desktop ? (value === 'left' ? null : value) : value}),
       }, h('svg', {viewBox: '0 0 24 24', width: 16, height: 16, 'aria-hidden': 'true'}, h('path', {d: path, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round'})))),
-      deviceHas(element, device, 'align') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({align: null})}, 'Наследи') : null);
+      isOverridden('align') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({align: null})}, 'Наследи') : null);
     const content = [];
     const typography = [];
     if (element.type === 'heading') {
       if (desktop) content.push(field('Ниво', h('select', {value: element.level == null ? '' : String(element.level), onChange: (event) => set({level: event.target.value === '' ? null : Number(event.target.value)})},
         [h('option', {value: ''}, 'По подразбиране'), ...[1, 2, 3, 4, 5, 6].map((level) => h('option', {key: level, value: String(level)}, 'H' + level))])));
-      if (!defaults) content.push(field('Текст', h(C.Input, {value: element.text || '', onChange: (event) => set({text: event.target.value})})));
+      if (!isDefaults) content.push(field('Текст', h(C.Input, {value: element.text || '', onChange: (event) => set({text: event.target.value})})));
       typography.push(sizeField, lineField, weightField, alignField);
     } else if (element.type === 'paragraph' || element.type === 'html') {
       const key = element.type === 'html' ? 'html' : 'text';
-      if (!defaults) content.push(field(element.type === 'html' ? 'HTML' : 'Текст', h(C.Textarea, {rows: 5, value: element[key] || '', onChange: (event) => set({[key]: event.target.value})})));
+      if (!isDefaults) content.push(field(element.type === 'html' ? 'HTML' : 'Текст', h(C.Textarea, {rows: 5, value: element[key] || '', onChange: (event) => set({[key]: event.target.value})})));
       if (element.type === 'paragraph') typography.push(sizeField, lineField, weightField, alignField);
     } else if (element.type === 'image') {
-      if (!defaults) {
+      if (!isDefaults) {
         content.push(h(C.ImageField, {key: 'image', label: 'Изображение', value: element.media_id || null, onChange: (id) => set({media_id: id})}));
         content.push(field('Алтернативен текст', h(C.Input, {value: element.alt || '', onChange: (event) => set({alt: event.target.value})})));
       }
@@ -103,9 +118,18 @@ export function createInspector(host) {
         }), 'image_tint_opacity'));
       }
     } else if (element.type === 'button') {
-      if (!defaults) {
+      if (!isDefaults) {
         const linkType = element.link_type === 'page' ? 'page' : 'url';
         content.push(field('Текст', h(C.Input, {value: element.text || '', onChange: (event) => set({text: event.target.value})})));
+        if (buttonStyles.length) {
+          content.push(field('Дизайн', h('select', {
+            value: element.button_style_id || '',
+            onChange: (event) => set({button_style_id: event.target.value === '' ? null : event.target.value}),
+          }, [
+            h('option', {key: '', value: ''}, 'Без / Собствен'),
+            ...buttonStyles.map((style) => h('option', {key: style.id, value: style.id}, style.name || 'Дизайн')),
+          ])));
+        }
         content.push(h('div', {className: 'fpb-columns-pick', key: 'link_type', role: 'group', 'aria-label': 'Тип на връзката'},
           [['page', 'Страница'], ['url', 'Собствен линк']].map(([value, label]) => h('button', {
             key: value,
@@ -133,13 +157,13 @@ export function createInspector(host) {
       }
       typography.push(sizeField, lineField, weightField, alignField);
     } else if (element.type === 'list') {
-      if (!defaults) {
+      if (!isDefaults) {
         content.push(h(C.CheckboxField, {key: 'ordered', checked: element.ordered === true, label: 'Номериран', onChange: (event) => set({ordered: event.target.checked})}));
         content.push(field('Редове, по един на ред', h(C.Textarea, {rows: 4, value: (element.items || []).join('\n'), onChange: (event) => set({items: event.target.value.split('\n')})})));
       }
       typography.push(sizeField, lineField, weightField, alignField);
     } else if (element.type === 'spacer') {
-      content.push(field('Височина (px)', h(C.Input, {type: 'number', min: 8, max: 160, value: view.height == null ? '' : String(view.height), placeholder: defaults ? inheritLabel : (desktop ? '32' : inheritLabel), onChange: (event) => setStyle({height: event.target.value === '' ? null : Number(event.target.value)})}), 'height'));
+      content.push(field('Височина (px)', h(C.Input, {type: 'number', min: 8, max: 160, value: view.height == null ? '' : String(view.height), placeholder: isDefaults ? inheritLabel : (desktop ? '32' : inheritLabel), onChange: (event) => setStyle({height: event.target.value === '' ? null : Number(event.target.value)})}), 'height'));
     } else if (element.type === 'section') {
       const hidden = view.hidden === true;
       content.push(h('div', {className: 'fpb-columns-pick' + (deviceHas(element, device, 'hidden') ? ' is-override' : ''), key: 'hidden', role: 'group', 'aria-label': 'Видимост'},
@@ -158,7 +182,7 @@ export function createInspector(host) {
           },
         }, label)),
         deviceHas(element, device, 'hidden') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({hidden: null})}, 'Наследи') : null));
-      if (hidden && !defaults) {
+      if (hidden && !isDefaults) {
         content.push(h('p', {key: 'hidden-note', className: 'fpb-muted'}, 'Секцията остава видима тук, но не се показва на сайта.'));
       }
       content.push(h(C.CheckboxField, {
@@ -167,15 +191,15 @@ export function createInspector(host) {
         label: 'Цяла ширина на страницата',
         onChange: (event) => {
           if (desktop) {
-            setStyle({full_width: defaults ? (event.target.checked ? true : null) : event.target.checked});
+            setStyle({full_width: isDefaults ? (event.target.checked ? true : null) : event.target.checked});
             return;
           }
           setStyle({full_width: event.target.checked ? (element.full_width === true ? null : true) : (element.full_width === true ? false : null)});
         },
       }));
-      if (!defaults && desktop) content.push(field('Добави колони', h('div', {className: 'fpb-columns-pick', role: 'group', 'aria-label': 'Добави колони'},
+      if (!isDefaults && desktop) content.push(field('Добави колони', h('div', {className: 'fpb-columns-pick', role: 'group', 'aria-label': 'Добави колони'},
         [1, 2, 3, 4, 5, 6].map((value) => h('button', {key: value, type: 'button', onClick: () => onAddColumns?.(value)}, String(value))))));
-    } else if (element.type === 'columns' && !defaults) {
+    } else if (element.type === 'columns' && !isDefaults) {
       const count = (element.children || []).length || element.columns || 2;
       const active = desktop ? count : (Number(view.columns) || count);
       content.push(h('div', {className: 'fpb-columns-pick' + (deviceHas(element, device, 'columns') ? ' is-override' : ''), key: 'columns', role: 'group', 'aria-label': 'Брой колони'},
@@ -213,7 +237,7 @@ export function createInspector(host) {
             onClick: () => setStyle({text_transform: desktop ? (value === 'none' ? null : value) : value}),
           }, label)),
           deviceHas(element, device, 'text_transform') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({text_transform: null})}, 'Наследи') : null),
-        field('Разредка (px)', h(C.Input, {type: 'number', min: -20, max: 20, value: view.letter_spacing == null ? '' : String(view.letter_spacing), placeholder: inheritLabel, onChange: (event) => setStyle({letter_spacing: event.target.value === '' ? null : Number(event.target.value)})}), 'letter_spacing'),
+        field('Разредка (px)', h(C.Input, {type: 'number', min: -20, max: 20, value: view.letter_spacing == null ? '' : String(view.letter_spacing), placeholder: placeholderFor('letter_spacing'), onChange: (event) => setStyle({letter_spacing: event.target.value === '' ? null : Number(event.target.value)})}), 'letter_spacing'),
         h('div', {className: 'fpb-color' + (deviceHas(element, device, 'shadow_color') ? ' is-override' : ''), key: 'shadow_color'},
           h('span', null, 'Сянка', deviceHas(element, device, 'shadow_color') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({shadow_color: null, shadow_x: null, shadow_y: null, shadow_blur: null})}, 'Наследи') : null),
           h('input', {
@@ -236,12 +260,23 @@ export function createInspector(host) {
           field('Размазване (px)', h(C.Input, {type: 'number', min: 0, max: 40, value: view.shadow_blur == null ? '' : String(view.shadow_blur), placeholder: '8', onChange: (event) => setStyle({shadow_blur: event.target.value === '' ? null : Number(event.target.value)})}), 'shadow_blur'),
         );
       }
-      typography.push(field('Контур (px)', h(C.Input, {type: 'number', min: 0, max: 8, value: view.stroke_width == null ? '' : String(view.stroke_width), placeholder: inheritLabel, onChange: (event) => setStyle({stroke_width: event.target.value === '' ? null : Number(event.target.value)})}), 'stroke_width'));
-      if (view.stroke_width) {
-        typography.push(h('div', {className: 'fpb-color' + (deviceHas(element, device, 'stroke_color') ? ' is-override' : ''), key: 'stroke_color'},
-          h('span', null, 'Цвят на контура', deviceHas(element, device, 'stroke_color') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({stroke_color: null})}, 'Наследи') : null),
-          h('input', {type: 'color', value: colorValue(view.stroke_color) || '#111827', 'aria-label': 'Цвят на контура', onChange: (event) => setStyle({stroke_color: event.target.value})}),
-          colorValue(view.stroke_color) ? h('button', {type: 'button', onClick: () => setStyle({stroke_color: null})}, desktop ? 'Без' : 'Наследи') : null));
+      typography.push(field('Контур (px)', h(C.Input, {type: 'number', min: 0, max: 8, value: view.stroke_width == null ? '' : String(view.stroke_width), placeholder: placeholderFor('stroke_width'), onChange: (event) => setStyle({stroke_width: event.target.value === '' ? null : Number(event.target.value)})}), 'stroke_width'));
+      if (displayValue('stroke_width')) {
+        const strokeLocal = colorValue(view.stroke_color);
+        const strokeFrom = colorValue(inherited.stroke_color);
+        typography.push(h('div', {className: 'fpb-color' + (isOverridden('stroke_color') ? ' is-override' : ''), key: 'stroke_color'},
+          h('span', null, 'Цвят на контура', isOverridden('stroke_color') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({stroke_color: null})}, 'Наследи') : null),
+          h('input', {
+            type: 'color',
+            value: strokeLocal || strokeFrom || '#111827',
+            'aria-label': 'Цвят на контура',
+            onChange: (event) => {
+              const next = event.target.value;
+              if (!strokeLocal && strokeFrom && strokeFrom.toLowerCase() === next.toLowerCase()) return;
+              setStyle({stroke_color: next});
+            },
+          }),
+          strokeLocal ? h('button', {type: 'button', onClick: () => setStyle({stroke_color: null})}, desktop ? (isOverridden('stroke_color') ? 'Наследи' : 'Без') : 'Наследи') : null));
       }
     }
     if (element.type !== 'section') {
@@ -266,13 +301,25 @@ export function createInspector(host) {
       const colorField = (label, key, shared) => {
         const source = shared ? element : view;
         const write = shared ? set : setStyle;
-        const over = !shared && deviceHas(element, device, key);
+        const local = colorValue(source[key]);
+        const fromLayer = shared ? null : colorValue(inherited[key]);
+        const shown = local || fromLayer || '#ffffff';
+        const over = !shared && isOverridden(key);
         return h('div', {className: 'fpb-color' + (over ? ' is-override' : ''), key},
           h('span', null, label, over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => write({[key]: null})}, 'Наследи') : null),
-          h('input', {type: 'color', value: colorValue(source[key]) || '#ffffff', 'aria-label': label, onChange: (event) => write({[key]: event.target.value})}),
-          colorValue(source[key]) ? h('button', {type: 'button', onClick: () => write({[key]: null})}, shared || desktop ? 'Без' : 'Наследи') : null);
+          h('input', {
+            type: 'color',
+            value: shown,
+            'aria-label': label,
+            onChange: (event) => {
+              const next = event.target.value;
+              if (!local && fromLayer && fromLayer.toLowerCase() === next.toLowerCase()) return;
+              write({[key]: next});
+            },
+          }),
+          local ? h('button', {type: 'button', onClick: () => write({[key]: null})}, shared || desktop ? (over ? 'Наследи' : 'Без') : 'Наследи') : null);
       };
-      const numberField = (label, key, max) => field(label, h(C.Input, {type: 'number', min: 0, max, value: view[key] == null ? '' : String(view[key]), placeholder: inheritLabel, onChange: (event) => setStyle({[key]: event.target.value === '' ? null : Number(event.target.value)})}), key);
+      const numberField = (label, key, max) => field(label, h(C.Input, {type: 'number', min: 0, max, value: view[key] == null ? '' : String(view[key]), placeholder: placeholderFor(key), onChange: (event) => setStyle({[key]: event.target.value === '' ? null : Number(event.target.value)})}), key);
       appearance.push(colorField('Заден фон', 'background'));
       if (element.type === 'section' && desktop) {
         const current = gradientCss(element);
@@ -361,7 +408,7 @@ export function createInspector(host) {
               }, h('span', {'aria-hidden': true}))))));
         }
       }
-      if (element.type === 'section' && (element.wallpaper_id || element.wallpaper_preset || defaults)) {
+      if (element.type === 'section' && (element.wallpaper_id || element.wallpaper_preset || isDefaults)) {
         appearance.push(h('div', {className: 'fpb-columns-pick' + (deviceHas(element, device, 'image_filter') ? ' is-override' : ''), key: 'image_filter', role: 'group', 'aria-label': 'Цвят на тапета'},
           [['color', 'Цветна'], ['grayscale', 'Черно-бяла']].map(([value, label]) => h('button', {
             key: value,
@@ -434,6 +481,58 @@ export function createInspector(host) {
         );
       }
     }
+    const animEffective = displayValue('animation');
+    const animation = [
+      field('Вход', h('select', {
+        value: view.animation == null ? '' : String(view.animation),
+        onChange: (event) => {
+          const value = event.target.value === '' ? null : event.target.value;
+          setStyle(value == null
+            ? {animation: null, animation_duration: null, animation_delay: null}
+            : {animation: value});
+        },
+      },
+        [h('option', {value: ''}, inherited.animation
+          ? inheritLabel + ' (' + (ENTRANCE_ANIMATIONS.find((item) => item.id === inherited.animation)?.label || inherited.animation) + ')'
+          : 'Без'),
+          ...ENTRANCE_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, item.label))]), 'animation'),
+    ];
+    if (animEffective) {
+      animation.push(
+        field('Продължителност (ms)', h(C.Input, {
+          type: 'number',
+          min: 100,
+          max: 3000,
+          value: view.animation_duration == null ? '' : String(view.animation_duration),
+          placeholder: placeholderFor('animation_duration', '600'),
+          onChange: (event) => setStyle({animation_duration: event.target.value === '' ? null : Number(event.target.value)}),
+        }), 'animation_duration'),
+        field('Закъснение (ms)', h(C.Input, {
+          type: 'number',
+          min: 0,
+          max: 3000,
+          value: view.animation_delay == null ? '' : String(view.animation_delay),
+          placeholder: placeholderFor('animation_delay', '0'),
+          onChange: (event) => setStyle({animation_delay: event.target.value === '' ? null : Number(event.target.value)}),
+        }), 'animation_delay'),
+      );
+      if (!isDefaults && onPreviewAnimation) {
+        animation.push(
+          h('div', {className: 'fpb-inspector-actions', key: 'anim-preview'},
+            h(C.Button, {type: 'button', variant: 'secondary', onClick: onPreviewAnimation}, 'Преглед')),
+        );
+      }
+    }
+    animation.push(
+      field('Hover', h('select', {
+        value: view.hover_animation == null ? '' : String(view.hover_animation),
+        onChange: (event) => setStyle({hover_animation: event.target.value === '' ? null : event.target.value}),
+      },
+        [h('option', {value: ''}, inherited.hover_animation
+          ? inheritLabel + ' (' + (HOVER_ANIMATIONS.find((item) => item.id === inherited.hover_animation)?.label || inherited.hover_animation) + ')'
+          : 'Без'),
+          ...HOVER_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, item.label))]), 'hover_animation'),
+    );
     const boxSides = [
       ['top', 'Горе'],
       ['right', 'Дясно'],
@@ -456,7 +555,7 @@ export function createInspector(host) {
       })));
     const spacing = [boxGroup('Padding', 'padding'), boxGroup('Margin', 'margin')];
     const sections = [
-      defaults ? null : ['Позиция', [
+      isDefaults ? null : ['Позиция', [
         field('Име в структурата', h(C.Input, {
           value: element.name || '',
           placeholder: elementLabel({...element, name: null}),
@@ -471,6 +570,7 @@ export function createInspector(host) {
       ['Текст', typography],
       ['Отстъп', spacing],
       ['Вид', appearance],
+      ['Анимация', animation],
       hover.length ? ['Hover', hover] : null,
     ].filter((entry) => entry && entry[1].length);
     const deviceLabel = WIDTHS.find((item) => item.id === device)?.label || 'Бюро';

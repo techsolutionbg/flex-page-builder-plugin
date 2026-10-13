@@ -16,21 +16,29 @@ final class HtmlCompiler
         'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color',
         'letter_spacing', 'text_transform', 'italic',
         'hover_background', 'hover_color', 'hover_border_color',
+        'animation', 'animation_duration', 'animation_delay', 'hover_animation',
         'color', 'border_width', 'border_color', 'radius', 'padding',
         'padding_top', 'padding_right', 'padding_bottom', 'padding_left',
         'margin_top', 'margin_right', 'margin_bottom', 'margin_left',
     ];
+
+    /** @var list<string> */
+    private const ENTRANCE_ANIMATIONS = ['fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in'];
+
+    /** @var list<string> */
+    private const HOVER_ANIMATIONS = ['lift', 'grow', 'dim'];
 
     /**
      * @param list<mixed> $elements
      * @param callable(int): string $mediaUrl
      * @param array<string, array<string, mixed>> $defaults
      * @param callable(int): string|null $pageUrl
+     * @param list<array<string, mixed>> $buttonStyles
      */
-    public function compile(array $elements, callable $mediaUrl, array $defaults = [], ?callable $pageUrl = null): string
+    public function compile(array $elements, callable $mediaUrl, array $defaults = [], ?callable $pageUrl = null, array $buttonStyles = []): string
     {
         $html = '';
-        $tree = $this->withDefaults($this->normalize($elements), $defaults);
+        $tree = $this->withDefaults($this->normalize($elements), $defaults, $buttonStyles);
         foreach ($tree as $element) {
             $html .= $this->element($element, $mediaUrl, false, $pageUrl);
         }
@@ -50,7 +58,7 @@ final class HtmlCompiler
                 continue;
             }
             $raw = $defaults[$type];
-            $style = self::appearance($raw);
+            $style = self::appearance($raw) + self::motion($raw);
             if (in_array($type, ['heading', 'paragraph', 'button', 'list'], true)) {
                 $style += self::typography($raw);
                 $style += self::textEffects($raw);
@@ -95,25 +103,80 @@ final class HtmlCompiler
     }
 
     /**
-     * @param list<array<string, mixed>> $elements
-     * @param array<string, array<string, mixed>> $defaults
+     * @param list<array<string, mixed>> $styles
      * @return list<array<string, mixed>>
      */
-    public function withDefaults(array $elements, array $defaults): array
+    public function normalizeButtonStyles(array $styles): array
     {
-        return array_map(function (array $element) use ($defaults): array {
-            $base = is_array($defaults[$element['type'] ?? ''] ?? null) ? $defaults[$element['type']] : [];
+        $out = [];
+        $seen = [];
+        foreach ($styles as $raw) {
+            if (!is_array($raw)) {
+                continue;
+            }
+            $id = self::buttonStyleId($raw['id'] ?? null);
+            if ($id === null || isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $name = trim(mb_substr((string) ($raw['name'] ?? ''), 0, 80));
+            if ($name === '') {
+                $name = 'Дизайн';
+            }
+            $style = $this->normalizeDefaults(['button' => $raw])['button'] ?? [];
+            $out[] = ['id' => $id, 'name' => $name] + $style;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $elements
+     * @param array<string, array<string, mixed>> $defaults
+     * @param list<array<string, mixed>> $buttonStyles
+     * @return list<array<string, mixed>>
+     */
+    public function withDefaults(array $elements, array $defaults, array $buttonStyles = []): array
+    {
+        $stylesById = [];
+        foreach ($buttonStyles as $style) {
+            if (is_array($style) && is_string($style['id'] ?? null)) {
+                $stylesById[$style['id']] = $style;
+            }
+        }
+
+        return array_map(function (array $element) use ($defaults, $stylesById, $buttonStyles): array {
+            $type = is_string($element['type'] ?? null) ? $element['type'] : '';
+            $layers = [];
+            if ($type === 'button') {
+                $styleId = $element['button_style_id'] ?? null;
+                if (is_string($styleId) && isset($stylesById[$styleId])) {
+                    $layers[] = $stylesById[$styleId];
+                }
+            }
+            $typeDefaults = is_array($defaults[$type] ?? null) ? $defaults[$type] : [];
+            if ($typeDefaults !== []) {
+                $layers[] = $typeDefaults;
+            }
             foreach (self::STYLE_KEYS as $key) {
-                if (($element[$key] ?? null) === null && array_key_exists($key, $base) && $base[$key] !== null) {
-                    $element[$key] = $base[$key];
+                if (($element[$key] ?? null) !== null) {
+                    continue;
+                }
+                foreach ($layers as $layer) {
+                    if (array_key_exists($key, $layer) && $layer[$key] !== null) {
+                        $element[$key] = $layer[$key];
+                        break;
+                    }
                 }
             }
             foreach (['tablet', 'phone'] as $device) {
-                $from = is_array($base[$device] ?? null) ? $base[$device] : [];
                 $own = is_array($element[$device] ?? null) ? $element[$device] : [];
-                foreach ($from as $key => $value) {
-                    if ($value !== null && ($own[$key] ?? null) === null) {
-                        $own[$key] = $value;
+                foreach ($layers as $layer) {
+                    $from = is_array($layer[$device] ?? null) ? $layer[$device] : [];
+                    foreach ($from as $key => $value) {
+                        if ($value !== null && ($own[$key] ?? null) === null) {
+                            $own[$key] = $value;
+                        }
                     }
                 }
                 if ($own !== []) {
@@ -121,11 +184,16 @@ final class HtmlCompiler
                 }
             }
             if (is_array($element['children'] ?? null)) {
-                $element['children'] = $this->withDefaults($element['children'], $defaults);
+                $element['children'] = $this->withDefaults($element['children'], $defaults, $buttonStyles);
             }
 
             return $element;
         }, $elements);
+    }
+
+    private static function buttonStyleId(mixed $value): ?string
+    {
+        return is_string($value) && preg_match('/^bs_[a-zA-Z0-9_-]{1,40}$/', $value) === 1 ? $value : null;
     }
 
     /**
@@ -183,7 +251,7 @@ final class HtmlCompiler
                     'type' => 'section',
                     'full_width' => ($element['full_width'] ?? null) === true ? true : (($element['full_width'] ?? null) === false ? false : null),
                     'children' => $this->nodes($children, 'section'),
-                ] + self::appearance($element) + self::gradient($element) + self::wallpaper($element) + self::overlay($element) + self::imageFilter($element) + self::imageTint($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'section');
+                ] + self::appearance($element) + self::motion($element) + self::gradient($element) + self::wallpaper($element) + self::overlay($element) + self::imageFilter($element) + self::imageTint($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'section');
                 continue;
             }
             if ($type === 'columns') {
@@ -198,7 +266,7 @@ final class HtmlCompiler
                     throw new \InvalidArgumentException('Невалиден елемент.', 422);
                 }
                 $children = is_array($element['children'] ?? null) ? $element['children'] : [];
-                $normalized[] = ['id' => $id, 'type' => 'column', 'children' => $this->nodes($children, 'column')] + self::appearance($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'column');
+                $normalized[] = ['id' => $id, 'type' => 'column', 'children' => $this->nodes($children, 'column')] + self::appearance($element) + self::motion($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'column');
                 continue;
             }
             if ($context === 'columns') {
@@ -237,7 +305,7 @@ final class HtmlCompiler
             $cols[$count - 1]['children'] = array_merge(is_array($cols[$count - 1]['children'] ?? null) ? $cols[$count - 1]['children'] : [], $extra);
         }
 
-        return ['id' => $id, 'type' => 'columns', 'columns' => $count, 'children' => $this->nodes($cols, 'columns')] + self::appearance($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'columns');
+        return ['id' => $id, 'type' => 'columns', 'columns' => $count, 'children' => $this->nodes($cols, 'columns')] + self::appearance($element) + self::motion($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'columns');
     }
 
     /** @param array<string, mixed> $element @return array<string, mixed> */
@@ -249,18 +317,19 @@ final class HtmlCompiler
             $level = $element['level'] ?? null;
             $level = $level === null || $level === '' ? null : (int) $level;
 
-            return ['type' => 'heading', 'level' => in_array($level, [1, 2, 3, 4, 5, 6], true) ? $level : null, 'text' => $text($element['text'] ?? '', 300)] + self::typography($element) + self::textEffects($element) + self::appearance($element);
+            return ['type' => 'heading', 'level' => in_array($level, [1, 2, 3, 4, 5, 6], true) ? $level : null, 'text' => $text($element['text'] ?? '', 300)] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
         }
         if ($type === 'paragraph') {
-            return ['type' => 'paragraph', 'text' => $text($element['text'] ?? '', 5000)] + self::typography($element) + self::textEffects($element) + self::appearance($element);
+            return ['type' => 'paragraph', 'text' => $text($element['text'] ?? '', 5000)] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
         }
         if ($type === 'image') {
             $mediaId = filter_var($element['media_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
-            return ['type' => 'image', 'media_id' => is_int($mediaId) ? $mediaId : null, 'alt' => $text($element['alt'] ?? '', 190)] + self::appearance($element) + self::imageFilter($element) + self::imageTint($element);
+            return ['type' => 'image', 'media_id' => is_int($mediaId) ? $mediaId : null, 'alt' => $text($element['alt'] ?? '', 190)] + self::appearance($element) + self::motion($element) + self::imageFilter($element) + self::imageTint($element);
         }
         if ($type === 'button') {
-            return ['type' => 'button', 'text' => $text($element['text'] ?? '', 80)] + self::buttonLink($element) + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::hover($element);
+            return ['type' => 'button', 'text' => $text($element['text'] ?? '', 80), 'button_style_id' => self::buttonStyleId($element['button_style_id'] ?? null)]
+                + self::buttonLink($element) + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::hover($element) + self::motion($element);
         }
         if ($type === 'list') {
             $items = is_array($element['items'] ?? null) ? $element['items'] : [];
@@ -272,18 +341,18 @@ final class HtmlCompiler
                 }
             }
 
-            return ['type' => 'list', 'ordered' => ($element['ordered'] ?? false) === true, 'items' => $clean] + self::typography($element) + self::textEffects($element) + self::appearance($element);
+            return ['type' => 'list', 'ordered' => ($element['ordered'] ?? false) === true, 'items' => $clean] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
         }
         if ($type === 'divider') {
-            return ['type' => 'divider'] + self::appearance($element);
+            return ['type' => 'divider'] + self::appearance($element) + self::motion($element);
         }
         if ($type === 'spacer') {
             $height = filter_var($element['height'] ?? null, FILTER_VALIDATE_INT);
 
-            return ['type' => 'spacer', 'height' => is_int($height) ? max(8, min(160, $height)) : null] + self::appearance($element);
+            return ['type' => 'spacer', 'height' => is_int($height) ? max(8, min(160, $height)) : null] + self::appearance($element) + self::motion($element);
         }
 
-        return ['type' => 'html', 'html' => mb_substr((string) ($element['html'] ?? ''), 0, 20000)] + self::appearance($element);
+        return ['type' => 'html', 'html' => mb_substr((string) ($element['html'] ?? ''), 0, 20000)] + self::appearance($element) + self::motion($element);
     }
 
     /** @param array<string, mixed> $element */
@@ -305,12 +374,13 @@ final class HtmlCompiler
             if (($element['hidden'] ?? false) === true) {
                 $class .= ' fpb-is-hidden';
             }
+            $class .= self::motionClasses($element);
             $tag = $element['type'] === 'section' ? 'section' : 'div';
             $styled = $this->withWallpaper($element, $mediaUrl);
 
             return '<' . $tag . ' class="' . $class . '" data-fpb-id="' . $id . '" data-fpb-type="' . $element['type'] . '"' . self::wrapperStyle($styled, $element['type'] === 'columns' ? (int) $element['columns'] : null) . '>' . self::wallpaperLayer($styled) . self::overlayLayer($styled) . $children . '</' . $tag . '>';
         }
-        $open = '<div class="fpb-element' . (($element['hidden'] ?? false) === true ? ' fpb-is-hidden' : '') . '" data-fpb-id="' . $id . '" data-fpb-type="' . $element['type'] . '"' . self::wrapperStyle($element) . '>';
+        $open = '<div class="fpb-element' . (($element['hidden'] ?? false) === true ? ' fpb-is-hidden' : '') . self::motionClasses($element) . '" data-fpb-id="' . $id . '" data-fpb-type="' . $element['type'] . '"' . self::wrapperStyle($element) . '>';
         $inner = match ($element['type']) {
             'heading' => self::headingHtml($element),
             'paragraph' => '<p' . self::textStyle($element) . '>' . nl2br(self::escape((string) $element['text']), false) . '</p>',
@@ -615,6 +685,49 @@ final class HtmlCompiler
             . $sel . ':hover{' . implode(';', $parts) . '}';
     }
 
+    /**
+     * @param array<string, mixed> $element
+     * @return array{animation: ?string, animation_duration: ?int, animation_delay: ?int, hover_animation: ?string}
+     */
+    private static function motion(array $element): array
+    {
+        $animation = is_string($element['animation'] ?? null) && in_array($element['animation'], self::ENTRANCE_ANIMATIONS, true)
+            ? $element['animation']
+            : null;
+        $hover = is_string($element['hover_animation'] ?? null) && in_array($element['hover_animation'], self::HOVER_ANIMATIONS, true)
+            ? $element['hover_animation']
+            : null;
+        $duration = self::px($element['animation_duration'] ?? null, 3000);
+        $delay = self::px($element['animation_delay'] ?? null, 3000);
+        if ($animation === null) {
+            $duration = null;
+            $delay = null;
+        }
+
+        return [
+            'animation' => $animation,
+            'animation_duration' => $duration,
+            'animation_delay' => $delay,
+            'hover_animation' => $hover,
+        ];
+    }
+
+    /** @param array<string, mixed> $element */
+    private static function motionClasses(array $element): string
+    {
+        $parts = [];
+        if (is_string($element['animation'] ?? null) && in_array($element['animation'], self::ENTRANCE_ANIMATIONS, true)) {
+            $parts[] = 'fpb-anim';
+            $parts[] = 'fpb-anim--' . $element['animation'];
+        }
+        if (is_string($element['hover_animation'] ?? null) && in_array($element['hover_animation'], self::HOVER_ANIMATIONS, true)) {
+            $parts[] = 'fpb-hover';
+            $parts[] = 'fpb-hover--' . $element['hover_animation'];
+        }
+
+        return $parts === [] ? '' : ' ' . implode(' ', $parts);
+    }
+
     /** @param array<string, mixed> $element */
     private static function boxCss(array $element): string
     {
@@ -673,6 +786,12 @@ final class HtmlCompiler
         }
         if (is_int($columns) && $columns >= 1) {
             $parts[] = 'grid-template-columns:repeat(' . $columns . ',minmax(0,1fr))';
+        }
+        if (is_string($element['animation'] ?? null) && in_array($element['animation'], self::ENTRANCE_ANIMATIONS, true)) {
+            $duration = is_int($element['animation_duration'] ?? null) ? $element['animation_duration'] : 600;
+            $delay = is_int($element['animation_delay'] ?? null) ? $element['animation_delay'] : 0;
+            $parts[] = '--fpb-anim-duration:' . max(100, min(3000, $duration)) . 'ms';
+            $parts[] = '--fpb-anim-delay:' . max(0, min(3000, $delay)) . 'ms';
         }
 
         return $parts === [] ? '' : ' style="' . implode(';', $parts) . '"';
@@ -1048,7 +1167,7 @@ final class HtmlCompiler
         $out = [];
         foreach (['tablet', 'phone'] as $device) {
             $raw = is_array($element[$device] ?? null) ? $element[$device] : [];
-            $style = self::appearance($raw);
+            $style = self::appearance($raw) + self::motion($raw);
             if (in_array($type, ['heading', 'paragraph', 'button', 'list'], true)) {
                 $style += self::typography($raw);
                 $style += self::textEffects($raw, true);

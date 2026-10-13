@@ -48,9 +48,12 @@ export function createPage(host) {
     const [conflict, setConflict] = React.useState(false);
     const [media, setMedia] = React.useState({});
     const [defaults, setDefaults] = React.useState({});
+    const [buttonStyles, setButtonStyles] = React.useState([]);
     const [leftTab, setLeftTab] = React.useState('elements');
     const [globalType, setGlobalType] = React.useState(null);
+    const [globalStyleId, setGlobalStyleId] = React.useState(null);
     const [panels, setPanels] = React.useState(() => ({palette: panelOpen('palette'), side: panelOpen('side')}));
+    const [animPreview, setAnimPreview] = React.useState(0);
     const changed = host.useWorkspaceChanged?.();
     const saved = host.useWorkspaceSaved?.();
     const baseHash = React.useRef('');
@@ -66,9 +69,11 @@ export function createPage(host) {
           setData(payload);
           setElements(Array.isArray(payload.elements) ? payload.elements : []);
           setDefaults(payload.defaults && typeof payload.defaults === 'object' ? payload.defaults : {});
+          setButtonStyles(Array.isArray(payload.button_styles) ? payload.button_styles : []);
           setLayout(payload.page?.layout || payload.layouts?.[0]?.id || 'default');
           baseHash.current = payload.base_hash || '';
           setSelected(null);
+          setGlobalStyleId(null);
         })
         .catch((error) => {
           if (!abort.signal.aborted) setFailure(error.message);
@@ -229,10 +234,18 @@ export function createPage(host) {
       setSaving(true);
       setFailure('');
       try {
-        const payload = await request(BASE + '/pages/' + id, 'PUT', {elements, defaults, layout, base_hash: baseHash.current, force: force === true});
+        const payload = await request(BASE + '/pages/' + id, 'PUT', {
+          elements,
+          defaults,
+          button_styles: buttonStyles,
+          layout,
+          base_hash: baseHash.current,
+          force: force === true,
+        });
         setData(payload);
         setElements(Array.isArray(payload.elements) ? payload.elements : []);
         setDefaults(payload.defaults && typeof payload.defaults === 'object' ? payload.defaults : defaults);
+        setButtonStyles(Array.isArray(payload.button_styles) ? payload.button_styles : buttonStyles);
         baseHash.current = payload.base_hash || '';
         setConflict(false);
         saved?.();
@@ -272,6 +285,9 @@ export function createPage(host) {
     const current = findElement(elements, selected);
     const width = WIDTHS.find((item) => item.id === device)?.width || '100%';
     const pagePaths = Object.fromEntries((data.pages || []).map((page) => [page.id, {path: page.path || '#'}]));
+    const motionPreview = current?.animation
+      ? [current.id, current.animation, current.animation_duration ?? '', current.animation_delay ?? '', animPreview].join('|')
+      : '';
     return h('div', {className: 'fpb-screen'},
       h('header', {className: 'fpb-toolbar'},
         h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate('/pages/' + id + '/edit')}, 'Затвори'),
@@ -292,12 +308,36 @@ export function createPage(host) {
           h('div', {className: 'fpb-panel-head'}, h('p', null, current ? 'Настройки' : (leftTab === 'globals' ? 'Глобални' : 'Елементи')), panelToggle('palette', current ? 'Скрий настройките' : 'Скрий панела', current ? 'Покажи настройките' : 'Покажи панела')),
           panels.palette && !current ? h('div', {className: 'fpb-tabs', role: 'tablist', 'aria-label': 'Ляв панел'},
             h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'elements', className: leftTab === 'elements' ? 'is-active' : '', onClick: () => setLeftTab('elements')}, 'Елементи'),
-            h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'globals', className: leftTab === 'globals' ? 'is-active' : '', onClick: () => { setLeftTab('globals'); setGlobalType(null); }}, 'Глобални')) : null,
+            h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'globals', className: leftTab === 'globals' ? 'is-active' : '', onClick: () => { setLeftTab('globals'); setGlobalType(null); setGlobalStyleId(null); }}, 'Глобални')) : null,
           panels.palette ? h('hr', {className: 'fpb-panel-rule'}) : null,
           panels.palette ? (current
-            ? h(Inspector, {element: current, device, onDevice: setDevice, onChange: update, onRemove: remove, onMove: move, onAddColumns: addColumns, pages: data.pages || []})
+            ? h(React.Fragment, null,
+              h('nav', {className: 'fpb-panel-crumbs', 'aria-label': 'Път към елемента'},
+                h('button', {type: 'button', onClick: () => setSelected(null)}, 'Елементи'),
+                ...elementPath(elements, selected).flatMap((element, index, trail) => {
+                  const label = crumbName(element, trail);
+                  const isLast = index === trail.length - 1;
+                  return [
+                    h('span', {key: 'sep-' + element.id, 'aria-hidden': true}, '/'),
+                    isLast
+                      ? h('span', {key: element.id, className: 'fpb-panel-crumb-current', 'aria-current': 'page'}, label)
+                      : h('button', {key: element.id, type: 'button', onClick: () => setSelected(element.id)}, label),
+                  ];
+                })),
+              h(Inspector, {element: current, device, onDevice: setDevice, onChange: update, onRemove: remove, onMove: move, onAddColumns: addColumns, onPreviewAnimation: () => setAnimPreview((n) => n + 1), pages: data.pages || [], buttonStyles, defaults}))
             : leftTab === 'globals'
-              ? h(GlobalsPanel, {defaults, selectedType: globalType, onSelectType: setGlobalType, device, onDevice: setDevice, onChange: (next) => { setDefaults(next); changed?.(); }})
+              ? h(GlobalsPanel, {
+                defaults,
+                buttonStyles,
+                selectedType: globalType,
+                editingStyleId: globalStyleId,
+                onSelectType: (type) => { setGlobalType(type); setGlobalStyleId(null); },
+                onSelectStyle: setGlobalStyleId,
+                device,
+                onDevice: setDevice,
+                onChangeDefaults: (next) => { setDefaults(next); changed?.(); },
+                onChangeStyles: (next) => { setButtonStyles(next); changed?.(); },
+              })
               : h('div', {className: 'fpb-palette-list'}, PALETTE_GROUPS.map((group, index) => h('section', {key: group.id, className: 'fpb-palette-group'},
                 index > 0 ? h('hr', {className: 'fpb-palette-rule'}) : null,
                 h('h2', null, group.label),
@@ -315,7 +355,7 @@ export function createPage(host) {
                 }, item.label))))))) : null),
         h('div', {className: 'fpb-canvas'},
           h('div', {className: 'fpb-stage', style: {width}},
-            h(Canvas, {frameHtml, markup: compile(elements, selected, media, defaults, pagePaths), selected, onSelect: (id) => { setSelected(id); if (id) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onText: editText, dragKind}))),
+            h(Canvas, {frameHtml, markup: compile(elements, selected, media, defaults, pagePaths, buttonStyles), selected, motionPreview, onSelect: (id) => { setSelected(id); if (id) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onText: editText, dragKind}))),
         h('aside', {className: 'fpb-side' + (panels.side ? '' : ' is-closed')},
           h('div', {className: 'fpb-panel-head'}, h('p', null, 'Структура'), panelToggle('side', 'Скрий структурата', 'Покажи структурата')),
           panels.side ? h('hr', {className: 'fpb-panel-rule'}) : null,

@@ -461,4 +461,207 @@ final class HtmlCompilerTest extends TestCase
 
         self::assertStringNotContainsString(':hover', $html);
     }
+
+    public function testItAppliesNamedButtonStylesBeforeDefaults(): void
+    {
+        $html = $this->compiler->compile(
+            [
+                ['id' => 'cta', 'type' => 'button', 'text' => 'CTA', 'url' => '/', 'button_style_id' => 'bs_primary'],
+            ],
+            static fn(int $id): string => '',
+            ['button' => ['background' => '#111827', 'color' => '#ffffff']],
+            null,
+            [
+                [
+                    'id' => 'bs_primary',
+                    'name' => 'Основен',
+                    'background' => '#0ea5e9',
+                    'color' => '#f8fafc',
+                    'hover_background' => '#0369a1',
+                ],
+            ],
+        );
+
+        self::assertStringContainsString('background:#0ea5e9', $html);
+        self::assertStringContainsString('color:#f8fafc', $html);
+        self::assertStringContainsString('[data-fpb-id="cta"] .fpb-button:hover{background:#0369a1}', $html);
+        self::assertStringNotContainsString('background:#111827', $html);
+    }
+
+    public function testItLetsLocalButtonStylesOverrideNamedDesigns(): void
+    {
+        $html = $this->compiler->compile(
+            [
+                [
+                    'id' => 'cta',
+                    'type' => 'button',
+                    'text' => 'CTA',
+                    'url' => '/',
+                    'button_style_id' => 'bs_primary',
+                    'background' => '#be123c',
+                ],
+            ],
+            static fn(int $id): string => '',
+            [],
+            null,
+            [
+                [
+                    'id' => 'bs_primary',
+                    'name' => 'Основен',
+                    'background' => '#0ea5e9',
+                    'color' => '#ffffff',
+                ],
+            ],
+        );
+
+        self::assertStringContainsString('background:#be123c', $html);
+        self::assertStringContainsString('color:#ffffff', $html);
+    }
+
+    public function testItLetsLocalHoverOverrideNamedButtonDesign(): void
+    {
+        $html = $this->compiler->compile(
+            [
+                [
+                    'id' => 'cta',
+                    'type' => 'button',
+                    'text' => 'CTA',
+                    'url' => '/',
+                    'button_style_id' => 'bs_primary',
+                    'hover_color' => '#fef3c7',
+                ],
+            ],
+            static fn(int $id): string => '',
+            [],
+            null,
+            [
+                [
+                    'id' => 'bs_primary',
+                    'name' => 'Основен',
+                    'background' => '#0ea5e9',
+                    'color' => '#ffffff',
+                    'hover_background' => '#0369a1',
+                    'hover_color' => '#ffffff',
+                ],
+            ],
+        );
+
+        self::assertStringContainsString('background:#0ea5e9', $html);
+        self::assertStringContainsString('color:#ffffff', $html);
+        self::assertStringContainsString('background:#0369a1', $html);
+        self::assertStringContainsString('color:#fef3c7', $html);
+        self::assertStringNotContainsString('[data-fpb-id="cta"] .fpb-button:hover{background:#0369a1;color:#ffffff}', $html);
+    }
+
+    public function testItFallsBackToDefaultsWhenButtonStyleIsMissing(): void
+    {
+        $html = $this->compiler->compile(
+            [
+                ['id' => 'cta', 'type' => 'button', 'text' => 'CTA', 'url' => '/', 'button_style_id' => 'bs_missing'],
+            ],
+            static fn(int $id): string => '',
+            ['button' => ['background' => '#111827', 'color' => '#ffffff']],
+            null,
+            [
+                ['id' => 'bs_primary', 'name' => 'Основен', 'background' => '#0ea5e9'],
+            ],
+        );
+
+        self::assertStringContainsString('background:#111827', $html);
+        self::assertStringContainsString('color:#ffffff', $html);
+    }
+
+    public function testItNormalizesButtonStyles(): void
+    {
+        $styles = $this->compiler->normalizeButtonStyles([
+            ['id' => 'bs_ok', 'name' => '  CTA  ', 'background' => '#0ea5e9', 'hover_color' => '#fff'],
+            ['id' => 'nope', 'name' => 'Bad'],
+            ['id' => 'bs_ok', 'name' => 'Duplicate'],
+            'skip',
+        ]);
+
+        self::assertCount(1, $styles);
+        self::assertSame('bs_ok', $styles[0]['id']);
+        self::assertSame('CTA', $styles[0]['name']);
+        self::assertSame('#0ea5e9', $styles[0]['background']);
+        self::assertSame('#fff', $styles[0]['hover_color']);
+    }
+
+    public function testItEmitsEntranceAnimationClassesAndVars(): void
+    {
+        $html = $this->compiler->compile([
+            [
+                'id' => 'hero',
+                'type' => 'heading',
+                'text' => 'Здравей',
+                'animation' => 'fade-up',
+                'animation_duration' => 800,
+                'animation_delay' => 150,
+            ],
+        ], static fn(int $id): string => '');
+
+        self::assertStringContainsString('class="fpb-element fpb-anim fpb-anim--fade-up"', $html);
+        self::assertStringContainsString('--fpb-anim-duration:800ms', $html);
+        self::assertStringContainsString('--fpb-anim-delay:150ms', $html);
+    }
+
+    public function testItOmitsAnimationClassesWhenUnset(): void
+    {
+        $html = $this->compiler->compile([
+            ['id' => 'plain', 'type' => 'paragraph', 'text' => 'Текст'],
+        ], static fn(int $id): string => '');
+
+        self::assertStringNotContainsString('fpb-anim', $html);
+        self::assertStringNotContainsString('--fpb-anim-', $html);
+        self::assertStringNotContainsString('fpb-hover', $html);
+    }
+
+    public function testItEmitsHoverAnimationClass(): void
+    {
+        $html = $this->compiler->compile([
+            [
+                'id' => 'card',
+                'type' => 'image',
+                'media_id' => 1,
+                'alt' => 'Снимка',
+                'hover_animation' => 'lift',
+            ],
+        ], static fn(int $id): string => '/photo.jpg');
+
+        self::assertStringContainsString('fpb-hover fpb-hover--lift', $html);
+    }
+
+    public function testItIgnoresInvalidAnimationPresets(): void
+    {
+        $html = $this->compiler->compile([
+            [
+                'id' => 'bad',
+                'type' => 'heading',
+                'text' => 'Не',
+                'animation' => 'spin',
+                'hover_animation' => 'bounce',
+                'animation_duration' => 500,
+            ],
+        ], static fn(int $id): string => '');
+
+        self::assertStringNotContainsString('fpb-anim', $html);
+        self::assertStringNotContainsString('fpb-hover', $html);
+        self::assertStringNotContainsString('--fpb-anim-', $html);
+    }
+
+    public function testItAppliesDefaultDurationWhenAnimationIsSetWithoutTiming(): void
+    {
+        $html = $this->compiler->compile([
+            [
+                'id' => 'fade',
+                'type' => 'paragraph',
+                'text' => 'Ок',
+                'animation' => 'fade',
+            ],
+        ], static fn(int $id): string => '');
+
+        self::assertStringContainsString('fpb-anim fpb-anim--fade', $html);
+        self::assertStringContainsString('--fpb-anim-duration:600ms', $html);
+        self::assertStringContainsString('--fpb-anim-delay:0ms', $html);
+    }
 }

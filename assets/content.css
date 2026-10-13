@@ -84,3 +84,52 @@ body:has(.fpb-section--full) { overflow-x: clip; }
 .fpb-button:hover { text-decoration: none; }
 .fpb-element hr { border: 0; border-top: 1px solid currentColor; opacity: 0.25; }
 .fpb-element ul, .fpb-element ol { margin: 0; padding-left: 1.25rem; }
+
+/* Entrance animations */
+.fpb-anim {
+  --fpb-anim-duration: 600ms;
+  --fpb-anim-delay: 0ms;
+  opacity: 0;
+  transition:
+    opacity var(--fpb-anim-duration) ease var(--fpb-anim-delay),
+    transform var(--fpb-anim-duration) ease var(--fpb-anim-delay);
+  will-change: opacity, transform;
+}
+.fpb-anim--fade { transform: none; }
+.fpb-anim--fade-up { transform: translateY(1.25rem); }
+.fpb-anim--fade-down { transform: translateY(-1.25rem); }
+.fpb-anim--fade-left { transform: translateX(1.25rem); }
+.fpb-anim--fade-right { transform: translateX(-1.25rem); }
+.fpb-anim--zoom-in { transform: scale(0.92); }
+.fpb-anim.is-visible {
+  opacity: 1;
+  transform: none;
+}
+/* After entrance finishes, shorten transition so hover is snappy. */
+.fpb-anim.is-visible.fpb-anim-done {
+  transition: transform .2s ease, opacity .2s ease;
+  will-change: auto;
+}
+
+/* Hover animations — must not override entrance transition while animating in. */
+.fpb-hover:not(.fpb-anim),
+.fpb-anim.fpb-hover.is-visible.fpb-anim-done {
+  transition: transform .2s ease, opacity .2s ease;
+}
+.fpb-hover--lift:hover { transform: translateY(-0.35rem); }
+.fpb-hover--grow:hover { transform: scale(1.03); }
+.fpb-hover--dim:hover { opacity: 0.72; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fpb-anim {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+  .fpb-hover:not(.fpb-anim),
+  .fpb-anim.fpb-hover.is-visible.fpb-anim-done { transition: none; }
+  .fpb-hover--lift:hover,
+  .fpb-hover--grow:hover { transform: none; }
+  .fpb-hover--dim:hover { opacity: 1; }
+}
