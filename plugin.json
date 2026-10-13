@@ -28,11 +28,13 @@
       "assets/lib/structure.js"
     ],
     "styles": [
-      "assets/builder.css"
+      "assets/builder.css",
+      "assets/patterns.css"
     ],
     "public": {
       "styles": [
-        "assets/content.css"
+        "assets/content.css",
+        "assets/patterns.css"
       ]
     }
   }

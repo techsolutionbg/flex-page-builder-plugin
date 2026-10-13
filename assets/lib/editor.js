@@ -19,6 +19,7 @@ import {
   removeElement,
   replaceElement,
   resizeColumns,
+  sectionHolder,
   WIDTHS,
 } from './model.js';
 import {BASE, parsePath} from './paths.js';
@@ -33,6 +34,7 @@ export function createPage(host) {
   const GlobalsPanel = createGlobalsPanel(host);
   const StructureTree = createStructureTree(host);
   const stylesheet = new URL('../builder.css', import.meta.url).href;
+  const patternsStylesheet = new URL('../patterns.css', import.meta.url).href;
 
   function Editor({id, navigate}) {
     const [data, setData] = React.useState(null);
@@ -97,7 +99,10 @@ export function createPage(host) {
         if (!mediaId || requestedMedia.current.has(mediaId)) return;
         requestedMedia.current.add(mediaId);
         request('/api/admin/media/' + mediaId)
-          .then((record) => setMedia((latest) => ({...latest, [mediaId]: record.url || record.thumbnail_url || ''})))
+          .then((record) => {
+            const file = record && typeof record.media === 'object' && !Array.isArray(record.media) ? record.media : record;
+            setMedia((latest) => ({...latest, [mediaId]: file?.url || file?.thumbnail_url || ''}));
+          })
           .catch(() => setMedia((latest) => ({...latest, [mediaId]: ''})));
       });
     }, [elements, defaults]);
@@ -110,14 +115,23 @@ export function createPage(host) {
     function insert(type, index, parentId) {
       if (!PALETTE.some((item) => item.type === type)) return;
       const element = blank(type);
-      let parent = type === 'section' ? null : (parentId || null);
+      let parent = parentId || null;
       let at = index;
+      if (type === 'section' && parent) parent = sectionHolder(elements, parent);
       if (!Number.isInteger(at)) {
         const located = selected ? locate(elements, selected) : null;
         const current = located ? located.list[located.index] : null;
         if (type === 'section') {
-          parent = null;
-          at = located && !located.parentId ? located.index + 1 : elements.length;
+          if (current?.type === 'section') {
+            parent = current.id;
+            at = (current.children || []).length;
+          } else if (located?.parentId) {
+            parent = sectionHolder(elements, located.parentId);
+            at = parent === located.parentId ? located.index + 1 : (findElement(elements, parent)?.children || []).length;
+          } else {
+            parent = null;
+            at = located ? located.index + 1 : elements.length;
+          }
         } else if (type === 'columns') {
           if (current?.type === 'section') {
             parent = current.id;
@@ -257,6 +271,7 @@ export function createPage(host) {
 
     const current = findElement(elements, selected);
     const width = WIDTHS.find((item) => item.id === device)?.width || '100%';
+    const pagePaths = Object.fromEntries((data.pages || []).map((page) => [page.id, {path: page.path || '#'}]));
     return h('div', {className: 'fpb-screen'},
       h('header', {className: 'fpb-toolbar'},
         h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate('/pages/' + id + '/edit')}, 'Затвори'),
@@ -280,9 +295,9 @@ export function createPage(host) {
             h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'globals', className: leftTab === 'globals' ? 'is-active' : '', onClick: () => { setLeftTab('globals'); setGlobalType(null); }}, 'Глобални')) : null,
           panels.palette ? h('hr', {className: 'fpb-panel-rule'}) : null,
           panels.palette ? (current
-            ? h(Inspector, {element: current, onChange: update, onRemove: remove, onMove: move, onAddColumns: addColumns})
+            ? h(Inspector, {element: current, device, onDevice: setDevice, onChange: update, onRemove: remove, onMove: move, onAddColumns: addColumns, pages: data.pages || []})
             : leftTab === 'globals'
-              ? h(GlobalsPanel, {defaults, selectedType: globalType, onSelectType: setGlobalType, onChange: (next) => { setDefaults(next); changed?.(); }})
+              ? h(GlobalsPanel, {defaults, selectedType: globalType, onSelectType: setGlobalType, device, onDevice: setDevice, onChange: (next) => { setDefaults(next); changed?.(); }})
               : h('div', {className: 'fpb-palette-list'}, PALETTE_GROUPS.map((group, index) => h('section', {key: group.id, className: 'fpb-palette-group'},
                 index > 0 ? h('hr', {className: 'fpb-palette-rule'}) : null,
                 h('h2', null, group.label),
@@ -300,11 +315,11 @@ export function createPage(host) {
                 }, item.label))))))) : null),
         h('div', {className: 'fpb-canvas'},
           h('div', {className: 'fpb-stage', style: {width}},
-            h(Canvas, {frameHtml, markup: compile(elements, selected, media, defaults), selected, onSelect: (id) => { setSelected(id); if (id) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onText: editText, dragKind}))),
+            h(Canvas, {frameHtml, markup: compile(elements, selected, media, defaults, pagePaths), selected, onSelect: (id) => { setSelected(id); if (id) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onText: editText, dragKind}))),
         h('aside', {className: 'fpb-side' + (panels.side ? '' : ' is-closed')},
           h('div', {className: 'fpb-panel-head'}, h('p', null, 'Структура'), panelToggle('side', 'Скрий структурата', 'Покажи структурата')),
           panels.side ? h('hr', {className: 'fpb-panel-rule'}) : null,
-          panels.side ? (elements.length ? h(StructureTree, {elements, selected, onSelect: setSelected, onMove: reorder}) : h('p', {className: 'fpb-muted'}, 'Няма елементи')) : null)),
+          panels.side ? (elements.length ? h(StructureTree, {elements, selected, onSelect: setSelected, onMove: reorder, device}) : h('p', {className: 'fpb-muted'}, 'Няма елементи')) : null)),
       h('footer', {className: 'fpb-path'},
         h('nav', {className: 'fpb-crumbs', 'aria-label': 'Вложеност'},
           h('button', {type: 'button', className: selected ? '' : 'is-active', onClick: () => setSelected(null)}, 'Страница'),
@@ -332,6 +347,7 @@ export function createPage(host) {
     }
     return h(React.Fragment, null,
       h('link', {rel: 'stylesheet', href: stylesheet}),
+      h('link', {rel: 'stylesheet', href: patternsStylesheet}),
       h(Editor, {id, navigate}));
   };
 }

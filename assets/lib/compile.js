@@ -1,4 +1,4 @@
-import {applyDefaults, GRADIENTS} from './model.js';
+import {applyDefaults, GRADIENTS, PATTERNS} from './model.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[char]));
@@ -47,6 +47,40 @@ function pxValue(value, max) {
   return Number.isInteger(number) ? Math.max(0, Math.min(max, number)) : null;
 }
 
+function signedPx(value, max) {
+  if (value === null || value === '') return null;
+  const number = Number(value);
+  return Number.isInteger(number) ? Math.max(-max, Math.min(max, number)) : null;
+}
+
+function textShadowCss(element) {
+  const color = colorValue(element?.shadow_color);
+  if (!color) return null;
+  const x = signedPx(element.shadow_x, 40) ?? 0;
+  const y = signedPx(element.shadow_y, 40) ?? 2;
+  const blur = pxValue(element.shadow_blur, 40) ?? 8;
+  return x + 'px ' + y + 'px ' + blur + 'px ' + color;
+}
+
+function textEffectsCss(element) {
+  const parts = [];
+  const shadow = textShadowCss(element);
+  if (shadow) parts.push('text-shadow:' + shadow);
+  const spacing = signedPx(element.letter_spacing, 20);
+  if (spacing !== null) parts.push('letter-spacing:' + spacing + 'px');
+  if (element.text_transform === 'uppercase' || element.text_transform === 'lowercase' || element.text_transform === 'capitalize' || element.text_transform === 'none') {
+    parts.push('text-transform:' + element.text_transform);
+  }
+  if (element.italic === true) parts.push('font-style:italic');
+  else if (element.italic === false) parts.push('font-style:normal');
+  const stroke = pxValue(element.stroke_width, 8);
+  if (stroke) {
+    parts.push('-webkit-text-stroke:' + stroke + 'px ' + (colorValue(element.stroke_color) || '#111827'));
+    parts.push('paint-order:stroke fill');
+  }
+  return parts;
+}
+
 const BOX_SIDES = [
   ['padding_top', 'padding-top'],
   ['padding_right', 'padding-right'],
@@ -59,20 +93,108 @@ const BOX_SIDES = [
 ];
 
 function cssUrl(url) {
-  return 'url("' + String(url).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")';
+  // Single quotes so the value is safe inside a double-quoted HTML style="…" attribute.
+  return "url('" + String(url).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "')";
+}
+
+function absoluteUrl(url) {
+  const value = String(url || '').trim();
+  if (!value || /^(javascript|data):/i.test(value)) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/') && typeof location !== 'undefined' && location.origin) return location.origin + value;
+  return value;
 }
 
 function wallpaperUrl(element, media) {
-  const id = element?.wallpaper_id;
-  if (!id || !media) return null;
-  const url = media[id];
-  if (!url || /^(javascript|data):/i.test(String(url).trim())) return null;
-  return url;
+  const id = Number(element?.wallpaper_id);
+  if (!Number.isInteger(id) || id < 1) return null;
+  const known = media && (media[id] || media[String(id)]);
+  return absoluteUrl(known) || absoluteUrl('/media-files/' + id + '/original');
+}
+
+function wallpaperPreset(element) {
+  return PATTERNS.some((item) => item.id === element?.wallpaper_preset) ? element.wallpaper_preset : null;
+}
+
+const WALLPAPER_POSITIONS = [
+  'top-left', 'top-center', 'top-right',
+  'center-left', 'center', 'center-right',
+  'bottom-left', 'bottom-center', 'bottom-right',
+];
+
+export function wallpaperPositionCss(position) {
+  switch (position) {
+    case 'top-left': return 'left top';
+    case 'top-center': return 'center top';
+    case 'top-right': return 'right top';
+    case 'center-left': return 'left center';
+    case 'center-right': return 'right center';
+    case 'bottom-left': return 'left bottom';
+    case 'bottom-center': return 'center bottom';
+    case 'bottom-right': return 'right bottom';
+    default: return 'center';
+  }
+}
+
+function wallpaperLayer(element, media) {
+  const url = wallpaperUrl(element, media);
+  const preset = url ? null : wallpaperPreset(element);
+  if (!url && !preset) return '';
+  const extras = [
+    preset ? ' fpb-pattern fpb-pattern-' + preset : '',
+    element.image_filter === 'grayscale' ? ' fpb-photo--grayscale' : '',
+    hasTint(element) ? ' fpb-photo--tint' : '',
+  ].join('');
+  if (url) {
+    const fit = element.wallpaper_fit === 'contain' ? 'contain' : 'cover';
+    const position = wallpaperPositionCss(WALLPAPER_POSITIONS.includes(element.wallpaper_position) ? element.wallpaper_position : null);
+    // CSS background only — progressive <img> scans wash out light text over the fallback.
+    const fallback = colorValue(element?.background) || '#0f172a';
+    return '<div class="fpb-section-wallpaper' + extras + '" style="position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;background-color:' + fallback + ';background-image:' + cssUrl(url) + ';background-size:' + fit + ';background-position:' + position + ';background-repeat:no-repeat' + photoVars(element, false) + '" aria-hidden="true"></div>';
+  }
+  return '<div class="fpb-section-wallpaper' + extras + '" style="position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none' + photoVars(element, false) + '" aria-hidden="true"></div>';
+}
+
+export function overlayCss(element) {
+  const color = colorValue(element?.overlay_color);
+  if (!color) return null;
+  const raw = Number(element.overlay_opacity);
+  const pct = Number.isInteger(raw) ? Math.max(0, Math.min(100, raw)) : 40;
+  if (pct <= 0) return null;
+  const hex = color.length === 4 ? '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3] : color;
+  const alpha = Math.round(pct) / 100;
+  return 'rgba(' + parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16) + ',' + alpha + ')';
+}
+
+function hasTint(element) {
+  return !!(colorValue(element?.image_tint) || colorValue(element?.tablet?.image_tint) || colorValue(element?.phone?.image_tint));
+}
+
+function photoClass(element) {
+  return 'fpb-photo' + (element.image_filter === 'grayscale' ? ' fpb-photo--grayscale' : '') + (hasTint(element) ? ' fpb-photo--tint' : '');
+}
+
+function photoVars(element, wrap) {
+  if (!hasTint(element)) return '';
+  const tint = colorValue(element.image_tint) || 'transparent';
+  const raw = Number(element.image_tint_opacity);
+  const pct = Number.isInteger(raw) ? Math.max(0, Math.min(100, raw)) : 40;
+  const css = '--fpb-tint:' + tint + ';--fpb-tint-opacity:' + (pct / 100);
+  return wrap === false ? ';' + css : ' style="' + css + '"';
+}
+
+function hasOverlay(element) {
+  return !!(overlayCss(element) || overlayCss(element?.tablet) || overlayCss(element?.phone));
+}
+
+function overlayLayer(element) {
+  if (element?.type !== 'section' || !hasOverlay(element)) return '';
+  return '<div class="fpb-section-overlay" style="position:absolute;inset:0;z-index:1;pointer-events:none;background:' + (overlayCss(element) || 'transparent') + '" aria-hidden="true"></div>';
 }
 
 function boxCss(element, media) {
   const parts = [];
-  const wallpaper = wallpaperUrl(element, media);
+  const wallpaper = wallpaperUrl(element, media) || wallpaperPreset(element);
   const gradient = gradientCss(element);
   const background = colorValue(element.background);
   const text = colorValue(element.color);
@@ -81,13 +203,13 @@ function boxCss(element, media) {
   const radius = pxValue(element.radius, 80);
   const padding = pxValue(element.padding, 80);
   if (wallpaper) {
+    parts.push('position:relative');
+    parts.push('overflow:hidden');
+    parts.push('min-height:16rem');
     if (background) parts.push('background-color:' + background);
-    parts.push('background-image:' + cssUrl(wallpaper));
-    parts.push('background-size:' + (element.wallpaper_fit === 'contain' ? 'contain' : 'cover'));
-    parts.push('background-position:center');
-    parts.push('background-repeat:no-repeat');
   } else if (gradient) parts.push('background:' + gradient);
   else if (background) parts.push('background:' + background);
+  if (hasOverlay(element) && !wallpaper) parts.push('position:relative');
   if (text) parts.push('color:' + text);
   if (width) parts.push('border:' + width + 'px solid ' + (border || '#111827'));
   if (radius !== null) parts.push('border-radius:' + radius + 'px');
@@ -107,6 +229,7 @@ function textStyle(element) {
   if (size !== null) parts.push('font-size:' + size + 'px');
   if (height !== null) parts.push('line-height:' + height);
   if (weight !== null) parts.push('font-weight:' + weight);
+  textEffectsCss(element).forEach((part) => parts.push(part));
   if (element.type === 'button') {
     const box = boxCss(element);
     if (box) parts.push(box);
@@ -138,8 +261,152 @@ function dragHandle() {
   return '<button type="button" class="fpb-drag" draggable="true" aria-label="Премести"></button>';
 }
 
-function leafHtml(element, selected, media) {
-  const selectedClass = element.id === selected ? ' is-selected' : '';
+function hiddenClass(element) {
+  return element.hidden ? ' fpb-is-hidden' : '';
+}
+
+function overrideRules(element, over) {
+  if (!over || !element?.id) return '';
+  const sel = '[data-fpb-id="' + escapeHtml(element.id) + '"]';
+  const boxSel = element.type === 'button' ? sel + ' .fpb-button' : sel;
+  const textSel = sel + ' :is(h1,h2,h3,h4,h5,h6,p,a,ul,ol)';
+  const rules = [];
+  const box = [];
+  const background = colorValue(over.background);
+  const textColor = colorValue(over.color);
+  const width = pxValue(over.border_width, 20);
+  const border = colorValue(over.border_color);
+  const radius = pxValue(over.radius, 80);
+  const padding = pxValue(over.padding, 80);
+  if (background) box.push('background:' + background + '!important');
+  if (textColor) box.push('color:' + textColor + '!important');
+  if (width) box.push('border:' + width + 'px solid ' + (border || '#111827') + '!important');
+  if (radius !== null) box.push('border-radius:' + radius + 'px!important');
+  if (padding !== null) box.push('padding:' + padding + 'px!important');
+  BOX_SIDES.forEach(([key, css]) => {
+    const value = pxValue(over[key], 160);
+    if (value !== null) box.push(css + ':' + value + 'px!important');
+  });
+  if (box.length) rules.push(boxSel + '{' + box.join(';') + '}');
+  const text = [];
+  const size = textSize(over.size);
+  const height = lineHeight(over.line_height);
+  const weight = fontWeight(over.weight);
+  if (size !== null) text.push('font-size:' + size + 'px!important');
+  if (height !== null) text.push('line-height:' + height + '!important');
+  if (weight !== null) text.push('font-weight:' + weight + '!important');
+  if (over.shadow_color != null || over.shadow_x != null || over.shadow_y != null || over.shadow_blur != null) {
+    const shadow = textShadowCss({
+      shadow_color: over.shadow_color ?? element.shadow_color,
+      shadow_x: over.shadow_x ?? element.shadow_x,
+      shadow_y: over.shadow_y ?? element.shadow_y,
+      shadow_blur: over.shadow_blur ?? element.shadow_blur,
+    });
+    text.push('text-shadow:' + (shadow || 'none') + '!important');
+  }
+  const spacing = signedPx(over.letter_spacing, 20);
+  if (spacing !== null) text.push('letter-spacing:' + spacing + 'px!important');
+  if (over.text_transform === 'uppercase' || over.text_transform === 'lowercase' || over.text_transform === 'capitalize' || over.text_transform === 'none') {
+    text.push('text-transform:' + over.text_transform + '!important');
+  }
+  if (over.italic === true) text.push('font-style:italic!important');
+  else if (over.italic === false) text.push('font-style:normal!important');
+  if (over.stroke_width != null || over.stroke_color != null) {
+    const stroke = pxValue(over.stroke_width ?? element.stroke_width, 8);
+    if (stroke) text.push('-webkit-text-stroke:' + stroke + 'px ' + (colorValue(over.stroke_color ?? element.stroke_color) || '#111827') + '!important');
+    else text.push('-webkit-text-stroke:0!important');
+  }
+  if (text.length) rules.push(textSel + '{' + text.join(';') + '}');
+  if (over.align === 'center' || over.align === 'right' || over.align === 'left') {
+    rules.push(sel + '{text-align:' + over.align + '!important}');
+  }
+  if (Number.isInteger(over.height)) rules.push(sel + ' .fpb-spacer{height:' + Math.max(8, Math.min(160, over.height)) + 'px!important}');
+  if (Number.isInteger(over.columns) && over.columns >= 1 && over.columns <= 6) {
+    rules.push(sel + '{grid-template-columns:repeat(' + over.columns + ',minmax(0,1fr))!important}');
+  }
+  if (over.hidden === true) rules.push(sel + '{opacity:.42!important;outline-color:#94a3b8!important}');
+  else if (over.hidden === false) {
+    rules.push(sel + '{opacity:1!important}');
+  }
+  if (over.full_width === true) {
+    rules.push(sel + '{width:100vw!important;max-width:100vw!important;margin-inline:calc(50% - 50vw)!important}');
+  } else if (over.full_width === false) {
+    rules.push(sel + '{width:100%!important;max-width:var(--corp-max-width,72rem)!important;margin-inline:auto!important}');
+  }
+  if (over.overlay_color != null || over.overlay_opacity != null) {
+    const css = overlayCss({
+      overlay_color: over.overlay_color ?? element.overlay_color,
+      overlay_opacity: over.overlay_opacity ?? element.overlay_opacity,
+    }) || 'transparent';
+    rules.push(sel + '>.fpb-section-overlay{background:' + css + '!important}');
+  }
+  if (over.image_filter != null) {
+    const filter = over.image_filter === 'grayscale' ? 'grayscale(1)' : 'none';
+    rules.push((element.type === 'section' ? sel + '>.fpb-section-wallpaper,' + sel + '>.fpb-section-wallpaper img' : sel + ' img') + '{filter:' + filter + '!important}');
+  }
+  if (over.image_tint != null || over.image_tint_opacity != null) {
+    const tint = colorValue(over.image_tint ?? element.image_tint) || 'transparent';
+    const raw = Number(over.image_tint_opacity ?? element.image_tint_opacity);
+    const pct = Number.isInteger(raw) ? Math.max(0, Math.min(100, raw)) : 40;
+    const target = element.type === 'section' ? sel + '>.fpb-section-wallpaper' : sel + ' .fpb-photo';
+    rules.push(target + '{--fpb-tint:' + tint + ';--fpb-tint-opacity:' + (pct / 100) + '}');
+  }
+  return rules.join('');
+}
+
+function hoverRules(element) {
+  if (element?.type !== 'button' || !element?.id) return '';
+  const parts = [];
+  const background = colorValue(element.hover_background);
+  const text = colorValue(element.hover_color);
+  const border = colorValue(element.hover_border_color);
+  if (background) parts.push('background:' + background);
+  if (text) parts.push('color:' + text);
+  if (border) parts.push('border-color:' + border);
+  if (!parts.length) return '';
+  const sel = '[data-fpb-id="' + escapeHtml(element.id) + '"] .fpb-button';
+  return sel + '{transition:background-color .2s ease,color .2s ease,border-color .2s ease}'
+    + sel + ':hover{' + parts.join(';') + '}';
+}
+
+function collectDocumentCss(elements, hover, tablet, phone) {
+  (elements || []).forEach((element) => {
+    const h = hoverRules(element);
+    const t = overrideRules(element, element.tablet);
+    const p = overrideRules(element, element.phone);
+    if (h) hover.push(h);
+    if (t) tablet.push(t);
+    if (p) phone.push(p);
+    if (element.children) collectDocumentCss(element.children, hover, tablet, phone);
+  });
+}
+
+function documentStyle(elements) {
+  const hover = [];
+  const tablet = [];
+  const phone = [];
+  collectDocumentCss(elements, hover, tablet, phone);
+  let css = hover.join('');
+  if (tablet.length) css += '@media (max-width:1023px){' + tablet.join('') + '}';
+  if (phone.length) css += '@media (max-width:639px){' + phone.join('') + '}';
+  return css ? '<style class="fpb-responsive">' + css + '</style>' : '';
+}
+
+function buttonHref(element, pages) {
+  if (element?.link_type === 'page') {
+    const id = Number(element.page_id);
+    if (!Number.isInteger(id) || id < 1) return '#';
+    const known = pages && (pages[id] || pages[String(id)]);
+    return known?.path || '#';
+  }
+  const url = String(element?.url || '').trim();
+  if (!url || /^\s*javascript:/i.test(url)) return '#';
+  if (url.startsWith('/') || url.startsWith('#') || /^https?:\/\//i.test(url)) return url.slice(0, 500);
+  return '#';
+}
+
+function leafHtml(element, selected, media, pages) {
+  const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element);
   let inner = '';
   if (element.type === 'heading') {
     const level = [1, 2, 3, 4, 5, 6].includes(Number(element.level)) ? Number(element.level) : 2;
@@ -148,9 +415,9 @@ function leafHtml(element, selected, media) {
     inner = '<p' + textStyle(element) + ' contenteditable="plaintext-only">' + editableText(element.text, true) + '</p>';
   } else if (element.type === 'image') {
     const url = media[element.media_id] || '';
-    inner = url ? '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '">' : '<p class="fpb-empty">Изберете изображение</p>';
+    inner = url ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '"></span>' : '<p class="fpb-empty">Изберете изображение</p>';
   } else if (element.type === 'button') {
-    inner = '<a class="fpb-button" href="' + escapeHtml(element.url || '#') + '"' + textStyle(element) + ' contenteditable="plaintext-only">' + editableText(element.text, false) + '</a>';
+    inner = '<a class="fpb-button" href="' + escapeHtml(buttonHref(element, pages)) + '"' + textStyle(element) + ' contenteditable="plaintext-only">' + editableText(element.text, false) + '</a>';
   } else if (element.type === 'list') {
     const tag = element.ordered ? 'ol' : 'ul';
     inner = '<' + tag + textStyle(element) + '>' + (element.items || []).map((item) => '<li contenteditable="plaintext-only">' + editableText(item, false) + '</li>').join('') + '</' + tag + '>';
@@ -164,36 +431,36 @@ function leafHtml(element, selected, media) {
   return '<div class="fpb-element' + selectedClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="' + element.type + '"' + wrapperStyle(element, media) + '>' + dragHandle() + inner + '</div>';
 }
 
-function sectionHtml(element, selected, media) {
-  const selectedClass = element.id === selected ? ' is-selected' : '';
-  const wideClass = element.full_width ? ' fpb-section--full' : '';
+function sectionHtml(element, selected, media, pages, nested) {
+  const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element);
+  const wideClass = element.full_width ? ' fpb-section--full' : (nested ? ' fpb-section--boxed' : '');
   const children = element.children || [];
   const body = children.length
-    ? children.map((child) => child.type === 'columns' ? columnsHtml(child, selected, media) : leafHtml(child, selected, media)).join('')
+    ? children.map((child) => child.type === 'section' ? sectionHtml(child, selected, media, pages, true) : child.type === 'columns' ? columnsHtml(child, selected, media, pages) : leafHtml(child, selected, media, pages)).join('')
     : '<p class="fpb-empty">Пуснете елемент в секцията</p>';
-  return '<div class="fpb-section' + selectedClass + wideClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="section"' + wrapperStyle(element, media) + '>' + dragHandle() + '<div class="fpb-section-body">' + body + '</div></div>';
+  return '<div class="fpb-section' + selectedClass + wideClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="section"' + wrapperStyle(element, media) + '>' + dragHandle() + wallpaperLayer(element, media) + overlayLayer(element) + '<div class="fpb-section-body">' + body + '</div></div>';
 }
 
-function columnsHtml(element, selected, media) {
-  const selectedClass = element.id === selected ? ' is-selected' : '';
+function columnsHtml(element, selected, media, pages) {
+  const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element);
   const cols = element.children || [];
   const cells = cols.map((column) => {
     const body = (column.children || []).length
-      ? column.children.map((child) => leafHtml(child, selected, media)).join('')
+      ? column.children.map((child) => leafHtml(child, selected, media, pages)).join('')
       : '<p class="fpb-empty">Пуснете елемент</p>';
-    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle() + '<div class="fpb-column-body">' + body + '</div></div>';
+    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + hiddenClass(column) + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle() + '<div class="fpb-column-body">' + body + '</div></div>';
   }).join('');
   return '<div class="fpb-columns' + selectedClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="columns"' + wrapperStyle(element, media) + '>' + dragHandle() + cells + '</div>';
 }
 
-export function compile(elements, selected, media, defaults) {
+export function compile(elements, selected, media, defaults, pages) {
   const tree = applyDefaults(elements, defaults);
   if (!tree.length) {
     return '<p class="fpb-empty">Добавете секция или пуснете елемент тук.</p>';
   }
   return tree.map((element) => {
-    if (element.type === 'section') return sectionHtml(element, selected, media);
-    if (element.type === 'columns') return columnsHtml(element, selected, media);
-    return leafHtml(element, selected, media);
-  }).join('');
+    if (element.type === 'section') return sectionHtml(element, selected, media, pages);
+    if (element.type === 'columns') return columnsHtml(element, selected, media, pages);
+    return leafHtml(element, selected, media, pages);
+  }).join('') + documentStyle(tree);
 }

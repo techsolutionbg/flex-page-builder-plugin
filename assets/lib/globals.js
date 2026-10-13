@@ -6,7 +6,7 @@ export function createGlobalsPanel(host) {
   const h = React.createElement;
   const Inspector = createInspector(host);
 
-  return function GlobalsPanel({defaults, selectedType, onSelectType, onChange}) {
+  return function GlobalsPanel({defaults, selectedType, onSelectType, onChange, device, onDevice}) {
     const current = selectedType ? {type: selectedType, ...(defaults[selectedType] || {})} : null;
     return h('div', {className: 'fpb-globals'},
       h('p', {className: 'fpb-globals-note'}, 'Тези стойности важат за всички страници. Настройките на конкретния елемент ги презаписват.'),
@@ -16,6 +16,8 @@ export function createGlobalsPanel(host) {
           h('p', {className: 'fpb-globals-title'}, PALETTE.find((item) => item.type === selectedType)?.label || selectedType),
           h(Inspector, {
             mode: 'defaults',
+            device,
+            onDevice,
             element: current,
             onChange: (next) => {
               const {type, ...style} = next;

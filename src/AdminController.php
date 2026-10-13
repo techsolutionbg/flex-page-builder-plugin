@@ -23,6 +23,7 @@ final readonly class AdminController
         private PublicMenuRenderer $menus,
         private ThemeResourceService $records,
         private PublicMediaApi $media,
+        private PageLinks $links,
     ) {}
 
     /** @param array<string, string> $arguments */
@@ -74,6 +75,7 @@ final readonly class AdminController
                 'layout' => $this->layout('', $page),
             ],
             'layouts' => $this->themes->pageTemplates(),
+            'pages' => $this->links->options(),
             'elements' => $elements,
             'defaults' => (new SettingsStore())->get(),
             'base_hash' => $hash,
@@ -103,9 +105,14 @@ final readonly class AdminController
         $previous = $compiler->normalizeDefaults($settings->get());
         if (is_array($body['defaults'] ?? null) && json_encode($defaults) !== json_encode($previous)) {
             $settings->save($defaults);
-            (new SitePublisher($store, $gateway, $this->media))->republishExcept((int) $page->getAttribute('id'), $defaults);
+            (new SitePublisher($store, $gateway, $this->media, $this->links))->republishExcept((int) $page->getAttribute('id'), $defaults);
         }
-        $compiled = $compiler->compile($elements, fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''), $defaults);
+        $compiled = $compiler->compile(
+            $elements,
+            fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''),
+            $defaults,
+            fn(int $id): string => $this->links->url($id),
+        );
         $layout = $this->layout(is_string($body['layout'] ?? null) ? $body['layout'] : '', $page);
         $existing = $store->get((int) $page->getAttribute('id'));
         $gateway->write($page, $compiled, $layout);

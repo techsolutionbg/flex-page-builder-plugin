@@ -22,12 +22,32 @@ export const PALETTE_GROUPS = [
 export const PALETTE = PALETTE_GROUPS.flatMap((group) => group.items);
 
 export const STYLE_KEYS = [
-  'size', 'line_height', 'weight', 'align', 'level', 'height', 'full_width',
+  'size', 'line_height', 'weight', 'align', 'level', 'height', 'full_width', 'hidden',
   'background', 'gradient', 'gradient_from', 'gradient_to', 'gradient_angle',
-  'wallpaper_id', 'wallpaper_fit',
+  'wallpaper_id', 'wallpaper_fit', 'wallpaper_position', 'wallpaper_preset', 'overlay_color', 'overlay_opacity', 'image_filter', 'image_tint', 'image_tint_opacity',
+  'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color',
+  'letter_spacing', 'text_transform', 'italic',
+  'hover_background', 'hover_color', 'hover_border_color',
   'color', 'border_width', 'border_color', 'radius', 'padding',
   'padding_top', 'padding_right', 'padding_bottom', 'padding_left',
   'margin_top', 'margin_right', 'margin_bottom', 'margin_left',
+];
+
+export const BREAKPOINTS = ['tablet', 'phone'];
+
+export const PATTERNS = [
+  {id: 'diagonal', label: 'Диагонал'},
+  {id: 'zigzag', label: 'Зигзаг'},
+  {id: 'arrows', label: 'Стрелки'},
+  {id: 'checker', label: 'Шах'},
+  {id: 'bricks', label: 'Тухли'},
+  {id: 'bars', label: 'Ленти'},
+  {id: 'waves', label: 'Вълни'},
+  {id: 'hexagons', label: 'Шестоъгълници'},
+  {id: 'diamonds', label: 'Ромбове'},
+  {id: 'dots', label: 'Точки'},
+  {id: 'links', label: 'Връзки'},
+  {id: 'zebra', label: 'Зебра'},
 ];
 
 export const GRADIENTS = [
@@ -48,6 +68,14 @@ export function applyDefaults(elements, defaults) {
     STYLE_KEYS.forEach((key) => {
       if (next[key] == null && base[key] != null) next[key] = base[key];
     });
+    BREAKPOINTS.forEach((device) => {
+      const from = base[device] && typeof base[device] === 'object' ? base[device] : {};
+      const own = next[device] && typeof next[device] === 'object' ? {...next[device]} : {};
+      Object.keys(from).forEach((key) => {
+        if (own[key] == null && from[key] != null) own[key] = from[key];
+      });
+      if (Object.keys(own).length) next[device] = own;
+    });
     if (next.children) next.children = applyDefaults(next.children, defaults);
     return next;
   });
@@ -58,6 +86,25 @@ export const WIDTHS = [
   {id: 'tablet', label: 'Таблет', width: '768px'},
   {id: 'phone', label: 'Телефон', width: '390px'},
 ];
+
+export function deviceView(element, device) {
+  if (!element || device === 'desktop' || !element[device]) return element;
+  return {...element, ...element[device]};
+}
+
+export function deviceHas(element, device, key) {
+  return device !== 'desktop' && element?.[device] != null && element[device][key] != null;
+}
+
+export function devicePatch(element, device, patch) {
+  if (device === 'desktop') return {...element, ...patch};
+  const current = {...(element[device] || {})};
+  Object.entries(patch).forEach(([key, value]) => {
+    if (value == null) delete current[key];
+    else current[key] = value;
+  });
+  return {...element, [device]: Object.keys(current).length ? current : null};
+}
 
 export function elementId() {
   return 'e' + Math.random().toString(36).slice(2, 10);
@@ -93,7 +140,7 @@ export function blank(type) {
   if (type === 'heading') return {id, type, text: 'Заглавие'};
   if (type === 'paragraph') return {id, type, text: 'Текст на параграфа'};
   if (type === 'image') return {id, type, media_id: null, alt: ''};
-  if (type === 'button') return {id, type, text: 'Научете повече', url: '/'};
+  if (type === 'button') return {id, type, text: 'Научете повече', link_type: 'url', page_id: null, url: '/'};
   if (type === 'list') return {id, type, ordered: false, items: ['Първи ред', 'Втори ред']};
   if (type === 'spacer') return {id, type};
   if (type === 'html') return {id, type, html: '<p>HTML</p>'};
@@ -101,6 +148,8 @@ export function blank(type) {
 }
 
 export function elementLabel(element, index) {
+  const custom = String(element.name || '').replace(/\s+/g, ' ').trim();
+  if (custom) return custom.slice(0, 60);
   if (element.type === 'column') return 'Колона ' + ((index || 0) + 1);
   if (element.type === 'columns') return 'Колони: ' + (element.children || []).length;
   if (element.type === 'section' && element.full_width) return 'Секция: цяла ширина';
@@ -110,6 +159,8 @@ export function elementLabel(element, index) {
 }
 
 export function crumbName(element, trail) {
+  const custom = String(element.name || '').replace(/\s+/g, ' ').trim();
+  if (custom) return custom.slice(0, 40);
   if (element.type === 'column') {
     const parent = trail[trail.indexOf(element) - 1];
     const index = (parent?.children || []).findIndex((child) => child.id === element.id);
@@ -193,8 +244,16 @@ export function removeElement(elements, id) {
   ));
 }
 
+export function sectionHolder(elements, parentId) {
+  if (!parentId) return null;
+  const holder = findElement(elements, parentId);
+  if (holder?.type === 'section') return parentId;
+  return elementPath(elements, parentId).reverse().find((item) => item.type === 'section')?.id || null;
+}
+
 export function insertInto(elements, node, parentId, index) {
-  let parent = node.type === 'section' ? null : (parentId || null);
+  let parent = parentId || null;
+  if (node.type === 'section') parent = sectionHolder(elements, parent);
   if (node.type === 'columns' && parent) {
     const holder = findElement(elements, parent);
     if (holder?.type !== 'section') parent = elementPath(elements, parent).find((item) => item.type === 'section')?.id || null;
@@ -230,7 +289,10 @@ export function place(elements, id, parentId, index) {
   if (!located) return elements;
   const moving = located.list[located.index];
   let targetParent = parentId || null;
-  if (moving.type === 'section') targetParent = null;
+  if (moving.type === 'section') {
+    targetParent = sectionHolder(elements, targetParent);
+    if (targetParent === id || elementPath(elements, targetParent).some((item) => item.id === id)) return elements;
+  }
   if (moving.type === 'column') targetParent = located.parentId;
   if (moving.type === 'columns' && targetParent) {
     const holder = findElement(elements, targetParent);
@@ -265,8 +327,10 @@ export function structureDrop(elements, movingId, targetId, where) {
   const targetAt = locate(elements, targetId);
   if (!targetAt) return null;
   if (moving.type === 'section') {
-    if (where === 'inside' || targetAt.parentId) return null;
-    return {parentId: null, index: targetAt.index + (where === 'after' ? 1 : 0)};
+    if (where === 'inside') return target.type === 'section' ? {parentId: target.id, index: (target.children || []).length} : null;
+    const parent = targetAt.parentId ? findElement(elements, targetAt.parentId) : null;
+    if (parent && parent.type !== 'section') return null;
+    return {parentId: targetAt.parentId, index: targetAt.index + (where === 'after' ? 1 : 0)};
   }
   if (moving.type === 'column') {
     const from = locate(elements, movingId);

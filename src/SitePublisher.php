@@ -13,6 +13,7 @@ final class SitePublisher
         private DocumentStore $documents,
         private PageGateway $gateway,
         private PublicMediaApi $media,
+        private PageLinks $links,
     ) {}
 
     /** @param array<string, array<string, mixed>> $defaults */
@@ -38,6 +39,7 @@ final class SitePublisher
                 $stored['elements'],
                 fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''),
                 $defaults,
+                fn(int $id): string => $this->links->url($id),
             );
             $this->gateway->write($page, $html, $template);
             $fresh = $this->gateway->find($pageId);
