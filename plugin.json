@@ -1,7 +1,7 @@
 {
   "id": "flex/page-builder",
   "name": "Flex Page Builder",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Визуален редактор на съдържанието на страница, с преизползваеми шапки и футери.",
   "minimum_platform_version": "0.1.68",
   "entrypoint": "Flex\\PageBuilder\\PageBuilderPlugin",
