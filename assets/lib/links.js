@@ -1,0 +1,23 @@
+import {editorPath} from './paths.js';
+
+export function createPageAction() {
+  return {
+    label: 'Отвори в Page Builder',
+    onSelect(row, helpers) {
+      if (row?.id) helpers?.navigate?.(editorPath(row.id));
+    },
+    visible: (row) => !row?.deleted_at,
+  };
+}
+
+export function createEditorLink(host) {
+  const h = host.React.createElement;
+  const C = host.components;
+  return function PageBuilderLink({context, navigate}) {
+    const id = Number(context?.id);
+    if (context?.type !== 'page' || !Number.isInteger(id) || id < 1) return null;
+    return h('div', {className: 'fpb-editor-link'},
+      h('span', null, 'Съдържанието между хедъра и футъра се подрежда в Page Builder. Хедърът и футърът идват от лейаута на темата.'),
+      h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate?.(editorPath(id))}, 'Отвори в Page Builder'));
+  };
+}

@@ -75,6 +75,7 @@ final readonly class AdminController
             ],
             'layouts' => $this->themes->pageTemplates(),
             'elements' => $elements,
+            'defaults' => (new SettingsStore())->get(),
             'base_hash' => $hash,
             'state' => $state,
         ];
@@ -94,8 +95,17 @@ final readonly class AdminController
             throw new \InvalidArgumentException('Невалидно съдържание.', 422);
         }
         $compiler = new HtmlCompiler();
+        $settings = new SettingsStore();
         $elements = $compiler->normalize($body['elements']);
-        $compiled = $compiler->compile($elements, fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''));
+        $defaults = is_array($body['defaults'] ?? null)
+            ? $compiler->normalizeDefaults($body['defaults'])
+            : $compiler->normalizeDefaults($settings->get());
+        $previous = $compiler->normalizeDefaults($settings->get());
+        if (is_array($body['defaults'] ?? null) && json_encode($defaults) !== json_encode($previous)) {
+            $settings->save($defaults);
+            (new SitePublisher($store, $gateway, $this->media))->republishExcept((int) $page->getAttribute('id'), $defaults);
+        }
+        $compiled = $compiler->compile($elements, fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''), $defaults);
         $layout = $this->layout(is_string($body['layout'] ?? null) ? $body['layout'] : '', $page);
         $existing = $store->get((int) $page->getAttribute('id'));
         $gateway->write($page, $compiled, $layout);

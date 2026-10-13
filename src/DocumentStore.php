@@ -86,6 +86,12 @@ final class DocumentStore
         $this->db->table('flex_page_builder_documents')->where('page_id', $pageId)->delete();
     }
 
+    /** @return list<int> */
+    public function pageIds(): array
+    {
+        return array_values(array_map('intval', $this->db->table('flex_page_builder_documents')->pluck('page_id')->all()));
+    }
+
     public static function hash(string $html): string
     {
         return hash('sha256', str_replace("\r\n", "\n", $html));

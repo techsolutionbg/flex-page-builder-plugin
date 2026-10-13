@@ -16,7 +16,16 @@
   ],
   "frontend": {
     "scripts": [
-      "assets/admin.js"
+      "assets/admin.js",
+      "assets/lib/canvas.js",
+      "assets/lib/compile.js",
+      "assets/lib/editor.js",
+      "assets/lib/globals.js",
+      "assets/lib/inspector.js",
+      "assets/lib/links.js",
+      "assets/lib/model.js",
+      "assets/lib/paths.js",
+      "assets/lib/structure.js"
     ],
     "styles": [
       "assets/builder.css"

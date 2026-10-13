@@ -1,0 +1,290 @@
+export const PALETTE_GROUPS = [
+  {id: 'layout', label: 'Структура', items: [
+    {type: 'section', label: 'Секция'},
+    {type: 'columns', label: 'Колони'},
+  ]},
+  {id: 'content', label: 'Съдържание', items: [
+    {type: 'heading', label: 'Заглавие'},
+    {type: 'paragraph', label: 'Параграф'},
+    {type: 'list', label: 'Списък'},
+    {type: 'image', label: 'Изображение'},
+    {type: 'button', label: 'Бутон'},
+  ]},
+  {id: 'spacing', label: 'Оформление', items: [
+    {type: 'divider', label: 'Разделител'},
+    {type: 'spacer', label: 'Отстъп'},
+  ]},
+  {id: 'advanced', label: 'Други', items: [
+    {type: 'html', label: 'HTML'},
+  ]},
+];
+
+export const PALETTE = PALETTE_GROUPS.flatMap((group) => group.items);
+
+export const STYLE_KEYS = [
+  'size', 'line_height', 'weight', 'align', 'level', 'height', 'full_width',
+  'background', 'gradient', 'gradient_from', 'gradient_to', 'gradient_angle',
+  'wallpaper_id', 'wallpaper_fit',
+  'color', 'border_width', 'border_color', 'radius', 'padding',
+  'padding_top', 'padding_right', 'padding_bottom', 'padding_left',
+  'margin_top', 'margin_right', 'margin_bottom', 'margin_left',
+];
+
+export const GRADIENTS = [
+  {id: 'dusk', label: 'Здрач', css: 'linear-gradient(180deg,#1e1b4b,#7c3aed)'},
+  {id: 'sunset', label: 'Залез', css: 'linear-gradient(135deg,#fb923c,#e11d48)'},
+  {id: 'ocean', label: 'Океан', css: 'linear-gradient(160deg,#0ea5e9,#0369a1)'},
+  {id: 'forest', label: 'Гора', css: 'linear-gradient(160deg,#166534,#052e16)'},
+  {id: 'sand', label: 'Пясък', css: 'linear-gradient(180deg,#fef3c7,#f59e0b)'},
+  {id: 'mist', label: 'Мъгла', css: 'linear-gradient(180deg,#f8fafc,#94a3b8)'},
+  {id: 'night', label: 'Нощ', css: 'linear-gradient(180deg,#0f172a,#334155)'},
+  {id: 'rose', label: 'Роза', css: 'linear-gradient(135deg,#fda4af,#be123c)'},
+];
+
+export function applyDefaults(elements, defaults) {
+  return (elements || []).map((element) => {
+    const base = defaults && defaults[element.type] ? defaults[element.type] : {};
+    const next = {...element};
+    STYLE_KEYS.forEach((key) => {
+      if (next[key] == null && base[key] != null) next[key] = base[key];
+    });
+    if (next.children) next.children = applyDefaults(next.children, defaults);
+    return next;
+  });
+}
+
+export const WIDTHS = [
+  {id: 'desktop', label: 'Бюро', width: '100%'},
+  {id: 'tablet', label: 'Таблет', width: '768px'},
+  {id: 'phone', label: 'Телефон', width: '390px'},
+];
+
+export function elementId() {
+  return 'e' + Math.random().toString(36).slice(2, 10);
+}
+
+export function isContainer(type) {
+  return type === 'section' || type === 'columns' || type === 'column';
+}
+
+export function emptyColumns(count) {
+  return Array.from({length: count}, () => ({id: elementId(), type: 'column', children: []}));
+}
+
+export function resizeColumns(element, count) {
+  const size = Math.max(1, Math.min(6, Number(count) || 2));
+  const cols = (element.children || []).filter((child) => child.type === 'column');
+  if (cols.length < size) {
+    return {...element, columns: size, children: cols.concat(emptyColumns(size - cols.length))};
+  }
+  if (cols.length > size) {
+    const keep = cols.slice(0, size).map((col, index) => index === size - 1
+      ? {...col, children: (col.children || []).concat(...cols.slice(size).map((extra) => extra.children || []))}
+      : col);
+    return {...element, columns: size, children: keep};
+  }
+  return {...element, columns: size, children: cols};
+}
+
+export function blank(type) {
+  const id = elementId();
+  if (type === 'section') return {id, type, children: []};
+  if (type === 'columns') return {id, type, columns: 2, children: emptyColumns(2)};
+  if (type === 'heading') return {id, type, text: 'Заглавие'};
+  if (type === 'paragraph') return {id, type, text: 'Текст на параграфа'};
+  if (type === 'image') return {id, type, media_id: null, alt: ''};
+  if (type === 'button') return {id, type, text: 'Научете повече', url: '/'};
+  if (type === 'list') return {id, type, ordered: false, items: ['Първи ред', 'Втори ред']};
+  if (type === 'spacer') return {id, type};
+  if (type === 'html') return {id, type, html: '<p>HTML</p>'};
+  return {id, type: 'divider'};
+}
+
+export function elementLabel(element, index) {
+  if (element.type === 'column') return 'Колона ' + ((index || 0) + 1);
+  if (element.type === 'columns') return 'Колони: ' + (element.children || []).length;
+  if (element.type === 'section' && element.full_width) return 'Секция: цяла ширина';
+  const name = PALETTE.find((item) => item.type === element.type)?.label || 'Елемент';
+  const text = element.type === 'heading' || element.type === 'paragraph' || element.type === 'button' ? String(element.text || '').replace(/\s+/g, ' ').trim() : '';
+  return text ? name + ': ' + text.slice(0, 42) : name;
+}
+
+export function crumbName(element, trail) {
+  if (element.type === 'column') {
+    const parent = trail[trail.indexOf(element) - 1];
+    const index = (parent?.children || []).findIndex((child) => child.id === element.id);
+    return 'Колона ' + (index < 0 ? 1 : index + 1);
+  }
+  if (element.type === 'columns') return 'Колони';
+  return PALETTE.find((item) => item.type === element.type)?.label || 'Елемент';
+}
+
+export function panelOpen(key) {
+  try {
+    return localStorage.getItem('fpb-panel-' + key) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export function rememberPanel(key, open) {
+  try {
+    localStorage.setItem('fpb-panel-' + key, open ? '1' : '0');
+  } catch {
+    return;
+  }
+}
+
+export function findElement(elements, id) {
+  for (const element of elements) {
+    if (element.id === id) return element;
+    if (isContainer(element.type)) {
+      const child = findElement(element.children || [], id);
+      if (child) return child;
+    }
+  }
+  return null;
+}
+
+export function elementPath(elements, id, trail) {
+  const walk = trail || [];
+  for (const element of elements) {
+    const next = walk.concat(element);
+    if (element.id === id) return next;
+    if (isContainer(element.type)) {
+      const found = elementPath(element.children || [], id, next);
+      if (found.length) return found;
+    }
+  }
+  return [];
+}
+
+export function locate(elements, id, parentId) {
+  for (let index = 0; index < elements.length; index += 1) {
+    const element = elements[index];
+    if (element.id === id) return {parentId: parentId || null, index, list: elements};
+    if (isContainer(element.type)) {
+      const nested = locate(element.children || [], id, element.id);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+export function replaceElement(elements, next) {
+  return elements.map((element) => {
+    if (element.id === next.id) return next;
+    if (isContainer(element.type)) return {...element, children: replaceElement(element.children || [], next)};
+    return element;
+  });
+}
+
+export function patchElement(elements, id, patch) {
+  return elements.map((element) => {
+    if (element.id === id) return {...element, ...patch};
+    if (isContainer(element.type)) return {...element, children: patchElement(element.children || [], id, patch)};
+    return element;
+  });
+}
+
+export function removeElement(elements, id) {
+  return elements.filter((element) => element.id !== id).map((element) => (
+    isContainer(element.type) ? {...element, children: removeElement(element.children || [], id)} : element
+  ));
+}
+
+export function insertInto(elements, node, parentId, index) {
+  let parent = node.type === 'section' ? null : (parentId || null);
+  if (node.type === 'columns' && parent) {
+    const holder = findElement(elements, parent);
+    if (holder?.type !== 'section') parent = elementPath(elements, parent).find((item) => item.type === 'section')?.id || null;
+  }
+  if (node.type !== 'section' && node.type !== 'columns' && parent) {
+    const holder = findElement(elements, parent);
+    if (holder?.type === 'columns') parent = (holder.children[0] || {}).id || null;
+  }
+  if (!parent) {
+    const next = elements.slice();
+    next.splice(Math.max(0, Math.min(index, next.length)), 0, node);
+    return next;
+  }
+  let found = false;
+  const walk = (list) => list.map((element) => {
+    if (element.id === parent && (element.type === 'section' || element.type === 'column')) {
+      found = true;
+      const children = (element.children || []).slice();
+      children.splice(Math.max(0, Math.min(index, children.length)), 0, node);
+      return {...element, children};
+    }
+    return isContainer(element.type) ? {...element, children: walk(element.children || [])} : element;
+  });
+  const next = walk(elements);
+  if (found) return next;
+  const fallback = elements.slice();
+  fallback.splice(Math.max(0, Math.min(index, fallback.length)), 0, node);
+  return fallback;
+}
+
+export function place(elements, id, parentId, index) {
+  const located = locate(elements, id);
+  if (!located) return elements;
+  const moving = located.list[located.index];
+  let targetParent = parentId || null;
+  if (moving.type === 'section') targetParent = null;
+  if (moving.type === 'column') targetParent = located.parentId;
+  if (moving.type === 'columns' && targetParent) {
+    const holder = findElement(elements, targetParent);
+    if (holder?.type !== 'section') targetParent = located.parentId;
+  }
+  if (moving.type !== 'section' && moving.type !== 'columns' && moving.type !== 'column' && targetParent) {
+    const holder = findElement(elements, targetParent);
+    if (holder?.type === 'columns') targetParent = (holder.children[0] || {}).id || null;
+  }
+  if (targetParent && !findElement(elements, targetParent)) return elements;
+  const same = (located.parentId || null) === targetParent;
+  let to = index;
+  if (same && to > located.index) to -= 1;
+  const max = same ? located.list.length - 1 : (targetParent ? (findElement(elements, targetParent).children || []).length : elements.length);
+  to = Math.max(0, Math.min(to, max));
+  if (same && to === located.index) return elements;
+  return insertInto(removeElement(elements, id), moving, targetParent, to);
+}
+
+export function eachElement(elements, visit) {
+  elements.forEach((element) => {
+    visit(element);
+    if (isContainer(element.type)) eachElement(element.children || [], visit);
+  });
+}
+
+export function structureDrop(elements, movingId, targetId, where) {
+  if (!movingId || !targetId || movingId === targetId) return null;
+  const moving = findElement(elements, movingId);
+  const target = findElement(elements, targetId);
+  if (!moving || !target || elementPath(elements, targetId).some((item) => item.id === movingId)) return null;
+  const targetAt = locate(elements, targetId);
+  if (!targetAt) return null;
+  if (moving.type === 'section') {
+    if (where === 'inside' || targetAt.parentId) return null;
+    return {parentId: null, index: targetAt.index + (where === 'after' ? 1 : 0)};
+  }
+  if (moving.type === 'column') {
+    const from = locate(elements, movingId);
+    if (where === 'inside' || target.type !== 'column' || !from || from.parentId !== targetAt.parentId) return null;
+    return {parentId: targetAt.parentId, index: targetAt.index + (where === 'after' ? 1 : 0)};
+  }
+  if (moving.type === 'columns') {
+    if (where === 'inside') return target.type === 'section' ? {parentId: target.id, index: (target.children || []).length} : null;
+    const parent = targetAt.parentId ? findElement(elements, targetAt.parentId) : null;
+    if (parent && parent.type !== 'section') return null;
+    return {parentId: targetAt.parentId, index: targetAt.index + (where === 'after' ? 1 : 0)};
+  }
+  if (where === 'inside') {
+    if (target.type === 'section' || target.type === 'column') return {parentId: target.id, index: (target.children || []).length};
+    if (target.type === 'columns' && target.children?.[0]) return {parentId: target.children[0].id, index: (target.children[0].children || []).length};
+    return null;
+  }
+  const parent = targetAt.parentId ? findElement(elements, targetAt.parentId) : null;
+  if (parent && parent.type !== 'section' && parent.type !== 'column') return null;
+  return {parentId: targetAt.parentId, index: targetAt.index + (where === 'after' ? 1 : 0)};
+}

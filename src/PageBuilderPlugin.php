@@ -11,6 +11,7 @@ final class PageBuilderPlugin implements PluginInterface, BootablePluginInterfac
     public function install(PluginContext $context): void
     {
         (new DocumentStore())->install();
+        (new SettingsStore())->install();
     }
 
     public function activate(PluginContext $context): void
@@ -27,6 +28,7 @@ final class PageBuilderPlugin implements PluginInterface, BootablePluginInterfac
 
     public function uninstall(PluginContext $context): void
     {
+        (new SettingsStore())->uninstall();
         (new DocumentStore())->uninstall();
     }
 
