@@ -25,6 +25,7 @@ export const STYLE_KEYS = [
   'size', 'line_height', 'weight', 'align', 'level', 'height', 'full_width', 'hidden',
   'background', 'gradient', 'gradient_from', 'gradient_to', 'gradient_angle',
   'wallpaper_id', 'wallpaper_fit', 'wallpaper_position', 'wallpaper_preset', 'overlay_color', 'overlay_opacity', 'image_filter', 'image_tint', 'image_tint_opacity',
+  'particles', 'particles_color', 'particles_density', 'particles_speed',
   'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color',
   'letter_spacing', 'text_transform', 'italic',
   'hover_background', 'hover_color', 'hover_border_color',
@@ -66,6 +67,14 @@ export const PATTERNS = [
   {id: 'zebra', label: 'Зебра'},
 ];
 
+export const PARTICLES = [
+  {id: 'dots', label: 'Плаващи точки'},
+  {id: 'links', label: 'Мрежа'},
+  {id: 'bubbles', label: 'Мехурчета'},
+  {id: 'snow', label: 'Сняг'},
+  {id: 'stars', label: 'Звезди'},
+];
+
 export const GRADIENTS = [
   {id: 'dusk', label: 'Здрач', css: 'linear-gradient(180deg,#1e1b4b,#7c3aed)'},
   {id: 'sunset', label: 'Залез', css: 'linear-gradient(135deg,#fb923c,#e11d48)'},
@@ -79,6 +88,12 @@ export const GRADIENTS = [
 
 export function buttonStyleId() {
   return 'bs_' + Math.random().toString(36).slice(2, 10);
+}
+
+export function chromeId() {
+  let hex = '';
+  while (hex.length < 8) hex += Math.random().toString(16).slice(2);
+  return 'ch_' + hex.slice(0, 8);
 }
 
 /** Layers that fill missing style keys: named button design, then type defaults. */

@@ -31,19 +31,24 @@ final readonly class AdminController
     {
         $gateway = new PageGateway($this->repository, $this->pages);
         $store = new DocumentStore();
+        $chrome = new ChromeStore();
         $id = (int) ($arguments['id'] ?? 0);
         try {
             $page = $gateway->find($id);
-            if (str_ends_with($request->getUri()->getPath(), '/frame')) {
+            $path = $request->getUri()->getPath();
+            if (str_ends_with($path, '/frame')) {
                 $template = $this->layout((string) ($request->getQueryParams()['template'] ?? ''), $page);
 
                 return $this->responses->html((new LayoutFrame($this->themes, $this->repository, $this->menus, $this->records, $this->media))->render($page, $template), 200, ['Cache-Control' => 'no-store']);
             }
+            if (str_ends_with($path, '/chrome') && $request->getMethod() === 'PUT') {
+                return $this->json($this->assignChrome($store, $chrome, $page, $this->body($request)));
+            }
             if ($request->getMethod() === 'PUT') {
-                return $this->json($this->save($store, $gateway, $page, $this->body($request)));
+                return $this->json($this->save($store, $chrome, $gateway, $page, $this->body($request)));
             }
 
-            return $this->json($this->document($store, $page));
+            return $this->json($this->document($store, $chrome, $page));
         } catch (\InvalidArgumentException $error) {
             $status = $error->getCode() >= 400 && $error->getCode() < 500 ? $error->getCode() : 422;
 
@@ -52,7 +57,7 @@ final readonly class AdminController
     }
 
     /** @return array<string, mixed> */
-    private function document(DocumentStore $store, Page $page): array
+    private function document(DocumentStore $store, ChromeStore $chrome, Page $page): array
     {
         $html = (string) $page->getAttribute('content');
         $stored = $store->get((int) $page->getAttribute('id'));
@@ -60,12 +65,18 @@ final readonly class AdminController
         if ($stored === null) {
             $state = 'new';
             $elements = trim($html) === '' ? [] : [['id' => 'imported', 'type' => 'html', 'html' => $html]];
+            $headerId = null;
+            $footerId = null;
         } elseif ($stored['html_hash'] === $hash) {
             $state = 'current';
             $elements = $stored['elements'];
+            $headerId = $stored['header_id'];
+            $footerId = $stored['footer_id'];
         } else {
             $state = 'changed';
             $elements = [['id' => 'imported', 'type' => 'html', 'html' => $html]];
+            $headerId = $stored['header_id'];
+            $footerId = $stored['footer_id'];
         }
         $compiler = new HtmlCompiler();
         $loaded = (new SettingsStore())->load();
@@ -75,8 +86,12 @@ final readonly class AdminController
                 'id' => (int) $page->getAttribute('id'),
                 'title' => (string) $page->getAttribute('title'),
                 'layout' => $this->layout('', $page),
+                'header_id' => $headerId,
+                'footer_id' => $footerId,
             ],
             'layouts' => $this->themes->pageTemplates(),
+            'headers' => $chrome->list('header'),
+            'footers' => $chrome->list('footer'),
             'pages' => $this->links->options(),
             'elements' => $elements,
             'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
@@ -90,7 +105,7 @@ final readonly class AdminController
      * @param array<string, mixed> $body
      * @return array<string, mixed>
      */
-    private function save(DocumentStore $store, PageGateway $gateway, Page $page, array $body): array
+    private function save(DocumentStore $store, ChromeStore $chrome, PageGateway $gateway, Page $page, array $body): array
     {
         $html = (string) $page->getAttribute('content');
         if (($body['force'] ?? false) !== true && ($body['base_hash'] ?? null) !== DocumentStore::hash($html)) {
@@ -125,19 +140,49 @@ final readonly class AdminController
         }
         $compiled = $compiler->compile(
             $elements,
-            fn(int $id): string => (string) ($this->media->get($id)['url'] ?? ''),
+            fn(int $mediaId): string => (string) ($this->media->get($mediaId)['url'] ?? ''),
             $defaults,
-            fn(int $id): string => $this->links->url($id),
+            fn(int $pageId): string => $this->links->url($pageId),
             $buttonStyles,
         );
         $layout = $this->layout(is_string($body['layout'] ?? null) ? $body['layout'] : '', $page);
+        $headerId = $this->resolveChromeId($chrome, $body['header_id'] ?? null, 'header');
+        $footerId = $this->resolveChromeId($chrome, $body['footer_id'] ?? null, 'footer');
         $existing = $store->get((int) $page->getAttribute('id'));
         $gateway->write($page, $compiled, $layout);
         $fresh = $gateway->find((int) $page->getAttribute('id'));
         $written = (string) $fresh->getAttribute('content');
-        $store->save((int) $page->getAttribute('id'), $elements, $written, $existing === null ? $html : null);
+        $store->save((int) $page->getAttribute('id'), $elements, $written, $existing === null ? $html : null, $headerId, $footerId);
 
-        return $this->document($store, $fresh);
+        return $this->document($store, $chrome, $fresh);
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     * @return array<string, mixed>
+     */
+    private function assignChrome(DocumentStore $store, ChromeStore $chrome, Page $page, array $body): array
+    {
+        $headerId = $this->resolveChromeId($chrome, $body['header_id'] ?? null, 'header');
+        $footerId = $this->resolveChromeId($chrome, $body['footer_id'] ?? null, 'footer');
+        $html = (string) $page->getAttribute('content');
+        $store->assignChrome((int) $page->getAttribute('id'), $html, $headerId, $footerId);
+
+        return $this->document($store, $chrome, $page);
+    }
+
+    private function resolveChromeId(ChromeStore $chrome, mixed $value, string $kind): ?string
+    {
+        $id = DocumentStore::chromeId($value);
+        if ($id === null) {
+            return null;
+        }
+        $item = $chrome->get($id);
+        if ($item === null || $item['kind'] !== $kind) {
+            return null;
+        }
+
+        return $id;
     }
 
     /** @return array<string, mixed> */

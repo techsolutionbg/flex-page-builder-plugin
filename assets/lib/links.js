@@ -17,7 +17,7 @@ export function createEditorLink(host) {
     const id = Number(context?.id);
     if (context?.type !== 'page' || !Number.isInteger(id) || id < 1) return null;
     return h('div', {className: 'fpb-editor-link'},
-      h('span', null, 'Съдържанието между хедъра и футъра се подрежда в Page Builder. Хедърът и футърът идват от лейаута на темата.'),
+      h('span', null, 'Съдържанието между хедъра и футъра се подрежда в Page Builder. Шапка и футър могат да са от темата или от библиотеката в редактора.'),
       h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate?.(editorPath(id))}, 'Отвори в Page Builder'));
   };
 }

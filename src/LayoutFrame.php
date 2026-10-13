@@ -36,7 +36,7 @@ final class LayoutFrame
         $menuData['__flex_theme_records'] = fn(string $resource): array => $this->records->published($resource);
         $menuData['featured_media'] = $this->media?->get((int) $page->getAttribute('featured_media_id')) ?? [];
 
-        $html = $this->themes->render('page.twig', [
+        $html = $this->themes->render('page.twig', (new ThemeChrome())->inject([
             'page' => $preview,
             'page_public_path' => $publicPages->publicPath($page),
             'page_settings' => $settings,
@@ -44,7 +44,7 @@ final class LayoutFrame
             'document_title' => (string) $page->getAttribute('title'),
             'navigation' => [],
             'flex_page_builder' => true,
-        ] + $menuData);
+        ] + $menuData));
 
         $guard = '<script>document.addEventListener("click",function(event){var link=event.target.closest&&event.target.closest("a");if(link)event.preventDefault();},true);</script>';
 

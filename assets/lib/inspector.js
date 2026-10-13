@@ -1,5 +1,5 @@
 import {colorValue, gradientCss} from './compile.js';
-import {deviceHas, devicePatch, deviceView, elementLabel, ENTRANCE_ANIMATIONS, GRADIENTS, hasStyleSource, HOVER_ANIMATIONS, inheritedStyle, PATTERNS, resizeColumns, WIDTHS} from './model.js';
+import {deviceHas, devicePatch, deviceView, elementLabel, ENTRANCE_ANIMATIONS, GRADIENTS, hasStyleSource, HOVER_ANIMATIONS, inheritedStyle, PARTICLES, PATTERNS, resizeColumns, WIDTHS} from './model.js';
 
 export function createInspector(host) {
   const {React} = host;
@@ -481,6 +481,49 @@ export function createInspector(host) {
         );
       }
     }
+    const particles = [];
+    if (element.type === 'section' && desktop) {
+      const effect = element.particles || null;
+      particles.push(field('Ефект', h('select', {
+        value: effect || '',
+        onChange: (event) => set(event.target.value === ''
+          ? {particles: null, particles_color: null, particles_density: null, particles_speed: null}
+          : {particles: event.target.value}),
+      },
+        [h('option', {value: ''}, inherited.particles
+          ? inheritLabel + ' (' + (PARTICLES.find((item) => item.id === inherited.particles)?.label || inherited.particles) + ')'
+          : 'Без'),
+          ...PARTICLES.map((item) => h('option', {key: item.id, value: item.id}, item.label))])));
+      if (effect) {
+        particles.push(
+          h('div', {className: 'fpb-color', key: 'particles_color'},
+            h('span', null, 'Цвят на частиците'),
+            h('input', {
+              type: 'color',
+              value: colorValue(element.particles_color) || '#ffffff',
+              'aria-label': 'Цвят на частиците',
+              onChange: (event) => set({particles_color: event.target.value}),
+            }),
+            colorValue(element.particles_color) ? h('button', {type: 'button', onClick: () => set({particles_color: null})}, 'Бял') : null),
+          field('Плътност (10–150)', h(C.Input, {
+            type: 'number',
+            min: 10,
+            max: 150,
+            value: element.particles_density == null ? '' : String(element.particles_density),
+            placeholder: '50',
+            onChange: (event) => set({particles_density: event.target.value === '' ? null : Number(event.target.value)}),
+          })),
+          field('Скорост (1–10)', h(C.Input, {
+            type: 'number',
+            min: 1,
+            max: 10,
+            value: element.particles_speed == null ? '' : String(element.particles_speed),
+            placeholder: '3',
+            onChange: (event) => set({particles_speed: event.target.value === '' ? null : Number(event.target.value)}),
+          })),
+        );
+      }
+    }
     const animEffective = displayValue('animation');
     const animation = [
       field('Вход', h('select', {
@@ -570,6 +613,7 @@ export function createInspector(host) {
       ['Текст', typography],
       ['Отстъп', spacing],
       ['Вид', appearance],
+      ['Частици', particles],
       ['Анимация', animation],
       hover.length ? ['Hover', hover] : null,
     ].filter((entry) => entry && entry[1].length);

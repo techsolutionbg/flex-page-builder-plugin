@@ -13,6 +13,7 @@ final class HtmlCompiler
         'size', 'line_height', 'weight', 'align', 'level', 'height', 'full_width', 'hidden',
         'background', 'gradient', 'gradient_from', 'gradient_to', 'gradient_angle',
         'wallpaper_id', 'wallpaper_fit', 'wallpaper_position', 'wallpaper_preset', 'overlay_color', 'overlay_opacity', 'image_filter', 'image_tint', 'image_tint_opacity',
+        'particles', 'particles_color', 'particles_density', 'particles_speed',
         'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color',
         'letter_spacing', 'text_transform', 'italic',
         'hover_background', 'hover_color', 'hover_border_color',
@@ -34,16 +35,24 @@ final class HtmlCompiler
      * @param array<string, array<string, mixed>> $defaults
      * @param callable(int): string|null $pageUrl
      * @param list<array<string, mixed>> $buttonStyles
+     * @param 'header'|'footer'|null $chromeKind
      */
-    public function compile(array $elements, callable $mediaUrl, array $defaults = [], ?callable $pageUrl = null, array $buttonStyles = []): string
+    public function compile(array $elements, callable $mediaUrl, array $defaults = [], ?callable $pageUrl = null, array $buttonStyles = [], ?string $chromeKind = null): string
     {
         $html = '';
         $tree = $this->withDefaults($this->normalize($elements), $defaults, $buttonStyles);
         foreach ($tree as $element) {
             $html .= $this->element($element, $mediaUrl, false, $pageUrl);
         }
+        if ($html === '') {
+            return '';
+        }
+        $class = 'fpb-root';
+        if ($chromeKind === 'header' || $chromeKind === 'footer') {
+            $class .= ' fpb-chrome fpb-chrome--' . $chromeKind;
+        }
 
-        return $html === '' ? '' : '<div class="fpb-root">' . $html . $this->documentCss($tree) . '</div>';
+        return '<div class="' . $class . '">' . $html . $this->documentCss($tree) . '</div>';
     }
 
     /**
@@ -75,6 +84,7 @@ final class HtmlCompiler
                 $style += self::gradient($raw);
                 $style += self::wallpaper($raw);
                 $style += self::overlay($raw);
+                $style += self::particles($raw);
                 $style += self::imageFilter($raw);
                 $style += self::imageTint($raw);
             }
@@ -251,7 +261,7 @@ final class HtmlCompiler
                     'type' => 'section',
                     'full_width' => ($element['full_width'] ?? null) === true ? true : (($element['full_width'] ?? null) === false ? false : null),
                     'children' => $this->nodes($children, 'section'),
-                ] + self::appearance($element) + self::motion($element) + self::gradient($element) + self::wallpaper($element) + self::overlay($element) + self::imageFilter($element) + self::imageTint($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'section');
+                ] + self::appearance($element) + self::motion($element) + self::gradient($element) + self::wallpaper($element) + self::overlay($element) + self::particles($element) + self::imageFilter($element) + self::imageTint($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'section');
                 continue;
             }
             if ($type === 'columns') {
@@ -378,7 +388,7 @@ final class HtmlCompiler
             $tag = $element['type'] === 'section' ? 'section' : 'div';
             $styled = $this->withWallpaper($element, $mediaUrl);
 
-            return '<' . $tag . ' class="' . $class . '" data-fpb-id="' . $id . '" data-fpb-type="' . $element['type'] . '"' . self::wrapperStyle($styled, $element['type'] === 'columns' ? (int) $element['columns'] : null) . '>' . self::wallpaperLayer($styled) . self::overlayLayer($styled) . $children . '</' . $tag . '>';
+            return '<' . $tag . ' class="' . $class . '" data-fpb-id="' . $id . '" data-fpb-type="' . $element['type'] . '"' . self::wrapperStyle($styled, $element['type'] === 'columns' ? (int) $element['columns'] : null) . '>' . self::wallpaperLayer($styled) . self::overlayLayer($styled) . self::particlesLayer($styled) . $children . '</' . $tag . '>';
         }
         $open = '<div class="fpb-element' . (($element['hidden'] ?? false) === true ? ' fpb-is-hidden' : '') . self::motionClasses($element) . '" data-fpb-id="' . $id . '" data-fpb-type="' . $element['type'] . '"' . self::wrapperStyle($element) . '>';
         $inner = match ($element['type']) {
@@ -1092,6 +1102,53 @@ final class HtmlCompiler
         }
 
         return '<div class="fpb-section-overlay" style="position:absolute;inset:0;z-index:1;pointer-events:none;background:' . (self::overlayCss($element) ?? 'transparent') . '" aria-hidden="true"></div>';
+    }
+
+    /** @var list<string> */
+    private const PARTICLES = ['dots', 'links', 'bubbles', 'snow', 'stars'];
+
+    private static function particlesId(mixed $value): ?string
+    {
+        return is_string($value) && in_array($value, self::PARTICLES, true) ? $value : null;
+    }
+
+    /**
+     * @param array<string, mixed> $element
+     * @return array{particles: ?string, particles_color: ?string, particles_density: ?int, particles_speed: ?int}
+     */
+    private static function particles(array $element): array
+    {
+        $preset = self::particlesId($element['particles'] ?? null);
+        if ($preset === null) {
+            return ['particles' => null, 'particles_color' => null, 'particles_density' => null, 'particles_speed' => null];
+        }
+        $density = filter_var($element['particles_density'] ?? null, FILTER_VALIDATE_INT);
+        $speed = filter_var($element['particles_speed'] ?? null, FILTER_VALIDATE_INT);
+
+        return [
+            'particles' => $preset,
+            'particles_color' => self::color($element['particles_color'] ?? null),
+            'particles_density' => is_int($density) ? max(10, min(150, $density)) : null,
+            'particles_speed' => is_int($speed) ? max(1, min(10, $speed)) : null,
+        ];
+    }
+
+    /**
+     * Placeholder that assets/particles.js fills with an animated canvas.
+     *
+     * @param array<string, mixed> $element
+     */
+    private static function particlesLayer(array $element): string
+    {
+        $preset = ($element['type'] ?? '') === 'section' ? self::particlesId($element['particles'] ?? null) : null;
+        if ($preset === null) {
+            return '';
+        }
+        $color = self::color($element['particles_color'] ?? null) ?? '#ffffff';
+        $density = is_int($element['particles_density'] ?? null) ? max(10, min(150, $element['particles_density'])) : 50;
+        $speed = is_int($element['particles_speed'] ?? null) ? max(1, min(10, $element['particles_speed'])) : 3;
+
+        return '<div class="fpb-section-particles" data-fpb-particles="' . $preset . '" data-color="' . $color . '" data-density="' . $density . '" data-speed="' . $speed . '" style="position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none;border-radius:inherit" aria-hidden="true"></div>';
     }
 
     private static function gradientAngle(mixed $value): ?int

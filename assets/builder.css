@@ -45,6 +45,7 @@
 }
 
 .fpb-toolbar .fpb-layout select,
+.fpb-toolbar .fpb-layout input,
 .fpb-toolbar > .react-secondary-button,
 .fpb-toolbar > .react-loading-button,
 .fpb-toolbar > .react-ui-button {

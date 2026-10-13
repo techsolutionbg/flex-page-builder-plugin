@@ -2,7 +2,7 @@
   "id": "flex/page-builder",
   "name": "Flex Page Builder",
   "version": "0.1.0",
-  "description": "Визуален редактор на съдържанието на страница. Хедърът и футърът идват от лейаута на темата.",
+  "description": "Визуален редактор на съдържанието на страница, с преизползваеми шапки и футери.",
   "minimum_platform_version": "0.1.68",
   "entrypoint": "Flex\\PageBuilder\\PageBuilderPlugin",
   "autoload": {
@@ -18,12 +18,15 @@
     "scripts": [
       "assets/admin.js",
       "assets/lib/canvas.js",
+      "assets/lib/chrome-admin.js",
+      "assets/lib/chrome.js",
       "assets/lib/compile.js",
       "assets/lib/editor.js",
       "assets/lib/globals.js",
       "assets/lib/inspector.js",
       "assets/lib/links.js",
       "assets/lib/model.js",
+      "assets/lib/page-chrome.js",
       "assets/lib/paths.js",
       "assets/lib/structure.js"
     ],
@@ -37,7 +40,8 @@
         "assets/patterns.css"
       ],
       "scripts": [
-        "assets/animate.js"
+        "assets/animate.js",
+        "assets/particles.js"
       ]
     }
   }

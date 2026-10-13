@@ -1,4 +1,4 @@
-import {applyDefaults, GRADIENTS, PATTERNS} from './model.js';
+import {applyDefaults, GRADIENTS, PARTICLES, PATTERNS} from './model.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[char]));
@@ -191,6 +191,14 @@ function hasOverlay(element) {
 function overlayLayer(element) {
   if (element?.type !== 'section' || !hasOverlay(element)) return '';
   return '<div class="fpb-section-overlay" style="position:absolute;inset:0;z-index:1;pointer-events:none;background:' + (overlayCss(element) || 'transparent') + '" aria-hidden="true"></div>';
+}
+
+function particlesLayer(element) {
+  if (element?.type !== 'section' || !PARTICLES.some((item) => item.id === element.particles)) return '';
+  const color = colorValue(element.particles_color) || '#ffffff';
+  const density = Math.max(10, pxValue(element.particles_density, 150) ?? 50);
+  const speed = Math.max(1, pxValue(element.particles_speed, 10) ?? 3);
+  return '<div class="fpb-section-particles" data-fpb-particles="' + element.particles + '" data-color="' + color + '" data-density="' + density + '" data-speed="' + speed + '" style="position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none;border-radius:inherit" aria-hidden="true"></div>';
 }
 
 function boxCss(element, media) {
@@ -459,7 +467,7 @@ function sectionHtml(element, selected, media, pages, nested) {
   const body = children.length
     ? children.map((child) => child.type === 'section' ? sectionHtml(child, selected, media, pages, true) : child.type === 'columns' ? columnsHtml(child, selected, media, pages) : leafHtml(child, selected, media, pages)).join('')
     : '<p class="fpb-empty">Пуснете елемент в секцията</p>';
-  return '<div class="fpb-section' + selectedClass + wideClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="section"' + wrapperStyle(element, media) + '>' + dragHandle() + wallpaperLayer(element, media) + overlayLayer(element) + '<div class="fpb-section-body">' + body + '</div></div>';
+  return '<div class="fpb-section' + selectedClass + wideClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="section"' + wrapperStyle(element, media) + '>' + dragHandle() + wallpaperLayer(element, media) + overlayLayer(element) + particlesLayer(element) + '<div class="fpb-section-body">' + body + '</div></div>';
 }
 
 function columnsHtml(element, selected, media, pages) {
