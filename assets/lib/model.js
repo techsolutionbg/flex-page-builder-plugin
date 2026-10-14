@@ -7,6 +7,7 @@ export const PALETTE_GROUPS = [
     {type: 'heading', label: 'Heading'},
     {type: 'paragraph', label: 'Paragraph'},
     {type: 'list', label: 'List'},
+    {type: 'menu', label: 'Navigation Menu'},
     {type: 'image', label: 'Image'},
     {type: 'button', label: 'Button'},
   ]},
@@ -32,6 +33,9 @@ export const STYLE_KEYS = [
   'text_decoration', 'decoration_style', 'decoration_color', 'decoration_thickness',
   'marker_style', 'marker_color', 'list_spacing',
   'hover_background', 'hover_color', 'hover_border_color',
+  'menu_hover_color', 'menu_hover_background', 'menu_hover_border_color',
+  'menu_hover_decoration', 'menu_hover_decoration_color', 'menu_hover_decoration_thickness',
+  'menu_hover_transform', 'menu_hover_duration', 'menu_hover_radius',
   'animation', 'animation_duration', 'animation_delay', 'hover_animation',
   'color', 'border_width', 'border_color', 'radius', 'padding',
   'padding_top', 'padding_right', 'padding_bottom', 'padding_left',
@@ -39,54 +43,54 @@ export const STYLE_KEYS = [
 ];
 
 export const ENTRANCE_ANIMATIONS = [
-  {id: 'fade', label: 'Избледняване'},
-  {id: 'fade-up', label: 'От долу'},
-  {id: 'fade-down', label: 'От горе'},
-  {id: 'fade-left', label: 'От дясно'},
-  {id: 'fade-right', label: 'От ляво'},
-  {id: 'zoom-in', label: 'Увеличаване'},
+  {id: 'fade', label: 'Fade'},
+  {id: 'fade-up', label: 'Fade up'},
+  {id: 'fade-down', label: 'Fade down'},
+  {id: 'fade-left', label: 'Fade left'},
+  {id: 'fade-right', label: 'Fade right'},
+  {id: 'zoom-in', label: 'Zoom in'},
 ];
 
 export const HOVER_ANIMATIONS = [
-  {id: 'lift', label: 'Повдигане'},
-  {id: 'grow', label: 'Увеличаване'},
-  {id: 'dim', label: 'Затъмняване'},
+  {id: 'lift', label: 'Lift'},
+  {id: 'grow', label: 'Grow'},
+  {id: 'dim', label: 'Dim'},
 ];
 
 export const BREAKPOINTS = ['tablet', 'phone'];
 
 export const PATTERNS = [
-  {id: 'diagonal', label: 'Диагонал'},
-  {id: 'zigzag', label: 'Зигзаг'},
-  {id: 'arrows', label: 'Стрелки'},
-  {id: 'checker', label: 'Шах'},
-  {id: 'bricks', label: 'Тухли'},
-  {id: 'bars', label: 'Ленти'},
-  {id: 'waves', label: 'Вълни'},
-  {id: 'hexagons', label: 'Шестоъгълници'},
-  {id: 'diamonds', label: 'Ромбове'},
-  {id: 'dots', label: 'Точки'},
-  {id: 'links', label: 'Връзки'},
-  {id: 'zebra', label: 'Зебра'},
+  {id: 'diagonal', label: 'Diagonal'},
+  {id: 'zigzag', label: 'Zigzag'},
+  {id: 'arrows', label: 'Arrows'},
+  {id: 'checker', label: 'Checkerboard'},
+  {id: 'bricks', label: 'Bricks'},
+  {id: 'bars', label: 'Bars'},
+  {id: 'waves', label: 'Waves'},
+  {id: 'hexagons', label: 'Hexagons'},
+  {id: 'diamonds', label: 'Diamonds'},
+  {id: 'dots', label: 'Dots'},
+  {id: 'links', label: 'Links'},
+  {id: 'zebra', label: 'Zebra'},
 ];
 
 export const PARTICLES = [
-  {id: 'dots', label: 'Плаващи точки'},
-  {id: 'links', label: 'Мрежа'},
-  {id: 'bubbles', label: 'Мехурчета'},
-  {id: 'snow', label: 'Сняг'},
-  {id: 'stars', label: 'Звезди'},
+  {id: 'dots', label: 'Floating dots'},
+  {id: 'links', label: 'Network'},
+  {id: 'bubbles', label: 'Bubbles'},
+  {id: 'snow', label: 'Snow'},
+  {id: 'stars', label: 'Stars'},
 ];
 
 export const GRADIENTS = [
-  {id: 'dusk', label: 'Здрач', css: 'linear-gradient(180deg,#1e1b4b,#7c3aed)'},
-  {id: 'sunset', label: 'Залез', css: 'linear-gradient(135deg,#fb923c,#e11d48)'},
-  {id: 'ocean', label: 'Океан', css: 'linear-gradient(160deg,#0ea5e9,#0369a1)'},
-  {id: 'forest', label: 'Гора', css: 'linear-gradient(160deg,#166534,#052e16)'},
-  {id: 'sand', label: 'Пясък', css: 'linear-gradient(180deg,#fef3c7,#f59e0b)'},
-  {id: 'mist', label: 'Мъгла', css: 'linear-gradient(180deg,#f8fafc,#94a3b8)'},
-  {id: 'night', label: 'Нощ', css: 'linear-gradient(180deg,#0f172a,#334155)'},
-  {id: 'rose', label: 'Роза', css: 'linear-gradient(135deg,#fda4af,#be123c)'},
+  {id: 'dusk', label: 'Dusk', css: 'linear-gradient(180deg,#1e1b4b,#7c3aed)'},
+  {id: 'sunset', label: 'Sunset', css: 'linear-gradient(135deg,#fb923c,#e11d48)'},
+  {id: 'ocean', label: 'Ocean', css: 'linear-gradient(160deg,#0ea5e9,#0369a1)'},
+  {id: 'forest', label: 'Forest', css: 'linear-gradient(160deg,#166534,#052e16)'},
+  {id: 'sand', label: 'Sand', css: 'linear-gradient(180deg,#fef3c7,#f59e0b)'},
+  {id: 'mist', label: 'Mist', css: 'linear-gradient(180deg,#f8fafc,#94a3b8)'},
+  {id: 'night', label: 'Night', css: 'linear-gradient(180deg,#0f172a,#334155)'},
+  {id: 'rose', label: 'Rose', css: 'linear-gradient(135deg,#fda4af,#be123c)'},
 ];
 
 export function buttonStyleId() {
@@ -162,9 +166,9 @@ export function applyDefaults(elements, defaults, buttonStyles) {
 }
 
 export const WIDTHS = [
-  {id: 'desktop', label: 'Бюро', width: '100%'},
-  {id: 'tablet', label: 'Таблет', width: '768px'},
-  {id: 'phone', label: 'Телефон', width: '390px'},
+  {id: 'desktop', label: 'Desktop', width: '100%'},
+  {id: 'tablet', label: 'Tablet', width: '768px'},
+  {id: 'phone', label: 'Phone', width: '390px'},
 ];
 
 export function deviceView(element, device) {
@@ -278,42 +282,43 @@ export function insertColumnBeside(elements, columnId, side) {
   return insertedId ? {elements: next, columnId: insertedId} : {elements, columnId: null};
 }
 
-export function blank(type) {
+export function blank(type, t = (source) => source) {
   const id = elementId();
   if (type === 'section') return {id, type, children: []};
   if (type === 'columns') return {id, type, columns: 2, children: emptyColumns(2)};
-  if (type === 'heading') return {id, type, text: 'Заглавие'};
-  if (type === 'paragraph') return {id, type, text: 'Текст на параграфа'};
+  if (type === 'heading') return {id, type, text: t('Heading text')};
+  if (type === 'paragraph') return {id, type, text: t('Paragraph text')};
   if (type === 'image') return {id, type, media_id: null, site_logo: false, alt: ''};
-  if (type === 'button') return {id, type, text: 'Научете повече', link_type: 'url', page_id: null, url: '/'};
-  if (type === 'list') return {id, type, ordered: false, items: ['Първи ред', 'Втори ред']};
+  if (type === 'button') return {id, type, text: t('Learn more'), link_type: 'url', page_id: null, url: '/'};
+  if (type === 'list') return {id, type, ordered: false, items: [t('First item'), t('Second item')]};
+  if (type === 'menu') return {id, type, menu_slug: '', menu_layout: 'vertical', menu_horizontal_align: 'left', menu_vertical_align: 'top'};
   if (type === 'spacer') return {id, type};
   if (type === 'html') return {id, type, html: '<p>HTML</p>'};
   if (type === 'shortcode') return {id, type, shortcode: ''};
   return {id, type: 'divider'};
 }
 
-export function elementLabel(element, index) {
+export function elementLabel(element, index, t = (source) => source) {
   const custom = String(element.name || '').replace(/\s+/g, ' ').trim();
   if (custom) return custom.slice(0, 60);
-  if (element.type === 'column') return 'Column ' + ((index || 0) + 1);
-  if (element.type === 'columns') return 'Columns: ' + (element.children || []).length;
-  if (element.type === 'section' && element.full_width) return 'Section: Full Width';
-  const name = PALETTE.find((item) => item.type === element.type)?.label || 'Element';
+  if (element.type === 'column') return t('Column {number}', {number: (index || 0) + 1});
+  if (element.type === 'columns') return t('Columns: {count}', {count: (element.children || []).length});
+  if (element.type === 'section' && element.full_width) return t('Section: Full Width');
+  const name = t(PALETTE.find((item) => item.type === element.type)?.label || 'Element');
   const text = element.type === 'heading' || element.type === 'paragraph' || element.type === 'button' ? String(element.text || '').replace(/\s+/g, ' ').trim() : '';
   return text ? name + ': ' + text.slice(0, 42) : name;
 }
 
-export function crumbName(element, trail) {
+export function crumbName(element, trail, t = (source) => source) {
   const custom = String(element.name || '').replace(/\s+/g, ' ').trim();
   if (custom) return custom.slice(0, 40);
   if (element.type === 'column') {
     const parent = trail[trail.indexOf(element) - 1];
     const index = (parent?.children || []).findIndex((child) => child.id === element.id);
-    return 'Column ' + (index < 0 ? 1 : index + 1);
+    return t('Column {number}', {number: index < 0 ? 1 : index + 1});
   }
-  if (element.type === 'columns') return 'Columns';
-  return PALETTE.find((item) => item.type === element.type)?.label || 'Element';
+  if (element.type === 'columns') return t('Columns');
+  return t(PALETTE.find((item) => item.type === element.type)?.label || 'Element');
 }
 
 export function panelOpen(key) {

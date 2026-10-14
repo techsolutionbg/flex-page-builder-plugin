@@ -2,7 +2,7 @@
 
 A visual page builder for Flex CMS. Pages pick a theme layout and optionally a reusable builder header and footer. Empty header/footer means the theme chrome is used.
 
-Version: **0.0.2** · ID: `flex/page-builder` · Minimum Flex CMS version: **0.1.68**.
+Version: **0.0.3** · ID: `flex/page-builder` · Minimum Flex CMS version: **0.1.68**.
 
 GitHub repository: `techsolutionbg/flex-page-builder-plugin`.
 
@@ -23,13 +23,19 @@ Deactivating the plugin removes the builder screen and the row action. The page 
 
 ## How it is used
 
-- **Отвори в Page Builder** in the **Действия** menu of every page, and at the start of the classic page editor, opens `/extension-pages/flex-page-builder-editor/{id}/edit`.
+- **Open in Page Builder** in the **Actions** menu of every page, and at the start of the classic page editor, opens `/extension-pages/flex-page-builder-editor/{id}/edit`.
 - The screen covers the admin window: a palette, the real theme header and footer around the content, and an inspector.
-- **Лейаут** lists the templates declared by the active theme. The choice is stored as the page template.
-- **Шапки и футери** under **Съдържание** is the CRUD library: create (choose header or footer), edit design, delete.
-- On a page, pick chrome from **Шапка** / **Футър** in Page Builder, or from **Настройки → Шапка и футър**. Empty = theme chrome.
-- **Бюро**, **Таблет** and **Телефон** change only the preview width.
-- **Запази** (also Ctrl+S) writes the element document and the compiled HTML into the page. A reload of the public page shows that content between the resolved header and footer.
+- **Layout** lists the templates declared by the active theme. The choice is stored as the page template.
+- **Headers & Footers** under **Content** is the reusable design library: create (choose Header or Footer), edit, and delete.
+- On a page, choose a Header or Footer in Page Builder, or in **Settings → Header and Footer**. Empty means the theme default.
+- **Desktop**, **Tablet**, and **Phone** change only the preview width.
+- **Save** (also Ctrl+S) writes the element document and the compiled HTML into the page. Reloading the public page shows that content between the resolved Header and Footer.
+
+## Admin translations
+
+The plugin provides independent admin catalogs in `locales/en.json` and `locales/bg.json`. English strings are the source keys and the platform discovers the catalogs from the plugin folder. Plugin UI code uses `host.i18n.t()` for visible text and follows the administrator's selected language.
+
+Inspector section names, subsection names, and field labels stay in English in both the page editor and the Header/Footer editor. Other interface text, controls, canvas hints, and sample content are available in English and Bulgarian.
 
 ## Theme contract: builder header and footer
 

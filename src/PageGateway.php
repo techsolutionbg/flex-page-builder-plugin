@@ -16,7 +16,7 @@ final class PageGateway
     {
         $page = $this->pages->find($id);
         if (!$page instanceof Page || $page->getAttribute('deleted_at') !== null) {
-            throw new \InvalidArgumentException('Страницата не е намерена.', 404);
+            throw new \InvalidArgumentException('The page was not found.', 404);
         }
 
         return $page;
@@ -48,7 +48,7 @@ final class PageGateway
         } catch (PageValidationFailed $error) {
             throw new \InvalidArgumentException($error->getMessage(), 422);
         } catch (PageNotFound) {
-            throw new \InvalidArgumentException('Страницата не е намерена.', 404);
+            throw new \InvalidArgumentException('The page was not found.', 404);
         }
     }
 }

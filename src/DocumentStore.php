@@ -85,7 +85,7 @@ final class DocumentStore
         ];
         $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         if (strlen($encoded) > self::MAX_BYTES) {
-            throw new \InvalidArgumentException('Документът е твърде голям.', 422);
+            throw new \InvalidArgumentException('The document is too large.', 422);
         }
         $existing = $this->db->table('flex_page_builder_documents')->where('page_id', $pageId)->first();
         $values = [

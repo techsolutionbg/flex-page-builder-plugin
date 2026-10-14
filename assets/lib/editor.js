@@ -31,6 +31,7 @@ export function createPage(host) {
   const {React, request, toast} = host;
   const C = host.components;
   const h = React.createElement;
+  const t = host.i18n.t;
   const Canvas = createCanvas(host);
   const Inspector = createInspector(host);
   const GlobalsPanel = createGlobalsPanel(host);
@@ -48,6 +49,7 @@ export function createPage(host) {
   const patternsStylesheet = new URL('../patterns.css', import.meta.url).href;
 
   function Editor({id, chromeId, navigate}) {
+    host.i18n.useLocale();
     const chromeOnly = Boolean(chromeId);
     const [data, setData] = React.useState(null);
     const [elements, setElements] = React.useState([]);
@@ -77,6 +79,7 @@ export function createPage(host) {
     const [animPreview, setAnimPreview] = React.useState(0);
     const changed = host.useWorkspaceChanged?.();
     const saved = host.useWorkspaceSaved?.();
+    const renameWorkspaceTab = host.useWorkspaceTitle?.();
     const baseHash = React.useRef('');
     const requestedMedia = React.useRef(new Set());
     const saveRef = React.useRef(() => {});
@@ -115,7 +118,7 @@ export function createPage(host) {
           setGlobalStyleId(null);
         })
         .catch((error) => {
-          if (!abort.signal.aborted) setFailure(error.message);
+          if (!abort.signal.aborted) setFailure(t(error.message));
         });
       return () => abort.abort();
     }, [id, chromeOnly]);
@@ -131,6 +134,7 @@ export function createPage(host) {
         .then(([item, lists]) => {
           setEditingChrome({id: item.id, kind: item.kind});
           setChromeName(item.name || '');
+          renameWorkspaceTab?.(item.name || (item.kind === 'footer' ? 'Footer' : 'Header'));
           setChromeElements(Array.isArray(item.elements) ? item.elements : []);
           setDefaults(lists.defaults && typeof lists.defaults === 'object' ? lists.defaults : {});
           setSiteLogos(lists.site_logos && typeof lists.site_logos === 'object' ? lists.site_logos : {light: '', dark: ''});
@@ -140,13 +144,14 @@ export function createPage(host) {
           setData({
             page: {id: 0, title: item.name || (item.kind === 'footer' ? 'Footer' : 'Header')},
             layouts: lists.layouts || [],
+            menus: Array.isArray(lists.menus) ? lists.menus : [],
             state: 'current',
           });
           setSelected(null);
           setLeftTab('elements');
         })
         .catch((error) => {
-          if (!abort.signal.aborted) setFailure(error.message);
+          if (!abort.signal.aborted) setFailure(t(error.message));
         });
       return () => abort.abort();
     }, [chromeOnly, chromeId]);
@@ -158,10 +163,10 @@ export function createPage(host) {
         ? BASE + '/chrome/frame?template=' + encodeURIComponent(layout)
         : BASE + '/pages/' + id + '/frame?template=' + encodeURIComponent(layout);
       fetch(frameUrl, {credentials: 'include', cache: 'no-store', signal: abort.signal, headers: {Accept: 'text/html'}})
-        .then((response) => response.ok ? response.text() : Promise.reject(new Error('Лейаутът не може да бъде показан.')))
+        .then((response) => response.ok ? response.text() : Promise.reject(new Error(t('The layout preview could not be loaded.'))))
         .then(setFrameHtml)
         .catch((error) => {
-          if (error.name !== 'AbortError') setFailure(error.message);
+          if (error.name !== 'AbortError') setFailure(t(error.message));
         });
       return () => abort.abort();
     }, [id, layout, chromeOnly]);
@@ -193,7 +198,7 @@ export function createPage(host) {
     function insert(type, index, parentId) {
       if (!PALETTE.some((item) => item.type === type)) return;
       const tree = activeElements;
-      const element = blank(type);
+      const element = blank(type, t);
       let parent = parentId || null;
       let at = index;
       if (type === 'section' && parent) parent = sectionHolder(tree, parent);
@@ -322,7 +327,7 @@ export function createPage(host) {
     function panelToggle(key, hide, show) {
       const open = panels[key];
       const left = key === 'palette' ? open : !open;
-      return h('button', {type: 'button', className: 'fpb-panel-toggle', 'aria-expanded': open, 'aria-label': open ? hide : show, onClick: () => togglePanel(key)},
+      return h('button', {type: 'button', className: 'fpb-panel-toggle', 'aria-expanded': open, 'aria-label': t(open ? hide : show), onClick: () => togglePanel(key)},
         h('svg', {viewBox: '0 0 24 24', width: 16, height: 16, 'aria-hidden': 'true'},
           h('path', {d: left ? 'M14.5 6.5 8.5 12l6 5.5' : 'M9.5 6.5 15.5 12l-6 5.5', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round'})));
     }
@@ -347,10 +352,11 @@ export function createPage(host) {
           });
           setEditingChrome({id: payload.id, kind: payload.kind});
           setChromeName(payload.name || '');
+          renameWorkspaceTab?.(payload.name || (payload.kind === 'footer' ? 'Footer' : 'Header'));
           setChromeElements(Array.isArray(payload.elements) ? payload.elements : []);
           await refreshChromeLists();
           saved?.();
-          toast?.success?.(editingChrome.kind === 'footer' ? 'Footer е записан.' : 'Header е записан.');
+        toast?.success?.(t(editingChrome.kind === 'footer' ? 'Footer saved.' : 'Header saved.'));
           return;
         }
         const payload = await request(BASE + '/pages/' + id, 'PUT', {
@@ -373,10 +379,10 @@ export function createPage(host) {
         baseHash.current = payload.base_hash || '';
         setConflict(false);
         saved?.();
-        toast?.success?.('Страницата е записана.');
+        toast?.success?.(t('Page saved.'));
       } catch (error) {
-        if (String(error.message).includes('променена на друго място')) setConflict(true);
-        else setFailure(error.message);
+        if (String(error.message).includes('The page was changed elsewhere')) setConflict(true);
+        else setFailure(t(error.message));
       } finally {
         setSaving(false);
       }
@@ -399,10 +405,10 @@ export function createPage(host) {
       };
     }, []);
 
-    if (!data && !failure) return h('div', {className: 'fpb-screen'}, h('p', {className: 'fpb-muted fpb-loading'}, 'Зареждане…'));
+    if (!data && !failure) return h('div', {className: 'fpb-screen'}, h('p', {className: 'fpb-muted fpb-loading'}, t('Loading…')));
     if (!data) {
       return h('div', {className: 'fpb-screen'},
-        h('div', {className: 'fpb-toolbar'}, h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate('/pages')}, 'Затвори')),
+        h('div', {className: 'fpb-toolbar'}, h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate('/pages')}, t('Close'))),
         h('div', {className: 'react-form-error', role: 'alert'}, failure));
     }
 
@@ -413,18 +419,18 @@ export function createPage(host) {
       ? [current.id, current.animation, current.animation_duration ?? '', current.animation_delay ?? '', animPreview].join('|')
       : '';
     const panelTitle = current
-      ? 'Настройки'
+      ? t('Settings')
       : (editingChrome
         ? (editingChrome.kind === 'footer' ? 'Footer' : 'Header')
-        : (leftTab === 'globals' ? 'Глобални' : 'Елементи'));
+        : (leftTab === 'globals' ? t('Global styles') : t('Elements')));
 
     function paletteBody() {
       if (current) {
         return h(React.Fragment, null,
-          h('nav', {className: 'fpb-panel-crumbs', 'aria-label': 'Път към елемента'},
-            h('button', {type: 'button', onClick: () => setSelected(null)}, editingChrome ? (editingChrome.kind === 'footer' ? 'Footer' : 'Header') : 'Елементи'),
+          h('nav', {className: 'fpb-panel-crumbs', 'aria-label': t('Element path')},
+            h('button', {type: 'button', onClick: () => setSelected(null)}, editingChrome ? t('Structure') : t('Elements')),
             ...elementPath(activeElements, selected).flatMap((element, index, trail) => {
-              const label = crumbName(element, trail);
+              const label = crumbName(element, trail, t);
               const isLast = index === trail.length - 1;
               return [
                 h('span', {key: 'sep-' + element.id, 'aria-hidden': true}, '/'),
@@ -433,7 +439,7 @@ export function createPage(host) {
                   : h('button', {key: element.id, type: 'button', onClick: () => setSelected(element.id)}, label),
               ];
             })),
-          h(Inspector, {element: current, device, onDevice: setDevice, onChange: update, onRemove: remove, onMove: move, onAddColumns: addColumns, onAddAdjacentColumn: addAdjacentColumn, onPreviewAnimation: () => setAnimPreview((n) => n + 1), pages: data.pages || [], buttonStyles, defaults, siteLogos, collapseAllRef: collapseInspectorSections}));
+          h(Inspector, {element: current, device, onDevice: setDevice, onChange: update, onRemove: remove, onMove: move, onAddColumns: addColumns, onAddAdjacentColumn: addAdjacentColumn, onPreviewAnimation: () => setAnimPreview((n) => n + 1), pages: data.pages || [], menus: data.menus || [], buttonStyles, defaults, siteLogos, collapseAllRef: collapseInspectorSections}));
       }
       if (!editingChrome && leftTab === 'globals') {
         return h(GlobalsPanel, {
@@ -451,7 +457,7 @@ export function createPage(host) {
       }
       return h('div', {className: 'fpb-palette-list'}, PALETTE_GROUPS.map((group, index) => h('section', {key: group.id, className: 'fpb-palette-group'},
         index > 0 ? h('hr', {className: 'fpb-palette-rule'}) : null,
-        h('h2', null, group.label),
+        h('h2', null, t(group.label)),
         h('div', {className: 'fpb-palette-items'}, group.items.map((item) => h('button', {
           key: item.type,
           type: 'button',
@@ -463,7 +469,7 @@ export function createPage(host) {
           },
           onDragEnd: () => { dragKind.current = ''; },
           onClick: () => insert(item.type),
-        }, item.label))))));
+        }, t(item.label)))))));
     }
 
     return h('div', {className: 'fpb-screen'},
@@ -474,21 +480,21 @@ export function createPage(host) {
           onClick: () => editingChrome
             ? closeChromeEditor()
             : navigate('/pages/' + id + '/edit'),
-        }, chromeOnly ? 'Изход' : (editingChrome ? 'Към страницата' : 'Затвори')),
+        }, chromeOnly ? t('Close') : (editingChrome ? t('Back to page') : t('Close'))),
         h('div', {className: 'fpb-toolbar-title'},
           h('h1', null, editingChrome ? (chromeName || (editingChrome.kind === 'footer' ? 'Footer' : 'Header')) : data.page.title),
-          h('p', null, editingChrome ? 'Редакция на ' + (editingChrome.kind === 'footer' ? 'Footer' : 'Header') : 'Page Builder')),
+          h('p', null, editingChrome ? t('Editing {kind}', {kind: editingChrome.kind === 'footer' ? 'Footer' : 'Header'}) : t('Page Builder'))),
         editingChrome
           ? h(React.Fragment, null,
             h('div', {className: 'fpb-chrome-fields'},
               chromeOnly
                 ? h('label', {className: 'fpb-layout'},
-                  h('span', null, 'Лейаут'),
+                  h('span', null, t('Layout')),
                   h('select', {value: layout, onChange: (event) => { setLayout(event.target.value); changed?.(); }},
                     (data.layouts || []).map((item) => h('option', {key: item.id, value: item.id}, item.label))))
                 : null,
               h('label', {className: 'fpb-layout'},
-                h('span', null, 'Име'),
+                h('span', null, t('Name')),
                 h('input', {
                   value: chromeName,
                   onChange: (event) => { setChromeName(event.target.value); changed?.(); },
@@ -502,18 +508,18 @@ export function createPage(host) {
               h('label', {className: 'fpb-layout'},
                 h('span', null, 'Header'),
                 h('select', {value: headerId, onChange: (event) => { setHeaderId(event.target.value); changed?.(); }},
-                  [h('option', {key: '', value: ''}, 'Theme default'),
+                  [h('option', {key: '', value: ''}, t('Theme default')),
                     ...headers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Header'))])),
               h('label', {className: 'fpb-layout'},
                 h('span', null, 'Footer'),
                 h('select', {value: footerId, onChange: (event) => { setFooterId(event.target.value); changed?.(); }},
-                  [h('option', {key: '', value: ''}, 'Theme default'),
+                  [h('option', {key: '', value: ''}, t('Theme default')),
                     ...footers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Footer'))])))),
-        h('div', {className: 'fpb-devices', role: 'group', 'aria-label': 'Ширина на прегледа'},
-          WIDTHS.map((item) => h('button', {key: item.id, type: 'button', className: item.id === device ? 'is-active' : '', 'aria-label': deviceLabels[item.id], title: deviceLabels[item.id], onClick: () => setDevice(item.id)}, deviceIcon(item.id), h('span', null, deviceLabels[item.id])))),
-        h(C.LoadingButton, {type: 'button', loading: saving, onClick: () => save(false)}, 'Запази')),
+        h('div', {className: 'fpb-devices', role: 'group', 'aria-label': t('Preview width')},
+          WIDTHS.map((item) => h('button', {key: item.id, type: 'button', className: item.id === device ? 'is-active' : '', 'aria-label': t(item.label), title: t(item.label), onClick: () => setDevice(item.id)}, deviceIcon(item.id), h('span', null, t(item.label))))),
+        h(C.LoadingButton, {type: 'button', loading: saving, onClick: () => save(false)}, t('Save'))),
       failure ? h('div', {className: 'react-form-error', role: 'alert'}, failure) : null,
-      !editingChrome && data.state === 'changed' ? h('div', {className: 'fpb-notice', role: 'status'}, 'Съдържанието е променено извън Page Builder. Записът ще го замести със сглобените елементи.') : null,
+      !editingChrome && data.state === 'changed' ? h('div', {className: 'fpb-notice', role: 'status'}, t('This page was changed outside Page Builder. Saving will replace its content with the builder elements.')) : null,
       h('div', {className: 'fpb-workspace' + (panels.palette ? '' : ' is-palette-closed') + (panels.side ? '' : ' is-side-closed')},
         h('aside', {className: 'fpb-palette' + (panels.palette ? '' : ' is-closed')},
           h('div', {className: 'fpb-panel-head' + (current ? ' fpb-panel-head--inspector' : '')},
@@ -521,36 +527,36 @@ export function createPage(host) {
             current ? h('div', {className: 'fpb-panel-head-actions'}, panels.palette ? h('button', {
               type: 'button',
               className: 'fpb-panel-toggle',
-              title: 'Сгъни или разгъни всички секции',
-              'aria-label': 'Сгъни или разгъни всички секции',
+              title: t('Collapse or expand all sections'),
+              'aria-label': t('Collapse or expand all sections'),
               onClick: () => collapseInspectorSections.current?.(),
             }, h('svg', {viewBox: '0 0 24 24', width: 16, height: 16, 'aria-hidden': 'true'},
               h('path', {d: 'm7 15 5 5 5-5M7 9l5-5 5 5', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round'}))) : null,
-            panelToggle('palette', current ? 'Скрий настройките' : 'Скрий панела', current ? 'Покажи настройките' : 'Покажи панела')) : panelToggle('palette', 'Скрий панела', 'Покажи панела')),
-          panels.palette && !current && !editingChrome && !chromeOnly ? h('div', {className: 'fpb-tabs', role: 'tablist', 'aria-label': 'Ляв панел'},
-            h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'elements', className: leftTab === 'elements' ? 'is-active' : '', onClick: () => setLeftTab('elements')}, 'Елементи'),
-            h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'globals', className: leftTab === 'globals' ? 'is-active' : '', onClick: () => { setLeftTab('globals'); setGlobalType(null); setGlobalStyleId(null); }}, 'Глобални')) : null,
+            panelToggle('palette', current ? 'Hide settings' : 'Hide panel', current ? 'Show settings' : 'Show panel')) : panelToggle('palette', 'Hide panel', 'Show panel')),
+          panels.palette && !current && !editingChrome && !chromeOnly ? h('div', {className: 'fpb-tabs', role: 'tablist', 'aria-label': t('Left panel')},
+            h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'elements', className: leftTab === 'elements' ? 'is-active' : '', onClick: () => setLeftTab('elements')}, t('Elements')),
+            h('button', {type: 'button', role: 'tab', 'aria-selected': leftTab === 'globals', className: leftTab === 'globals' ? 'is-active' : '', onClick: () => { setLeftTab('globals'); setGlobalType(null); setGlobalStyleId(null); }}, t('Global styles'))) : null,
           panels.palette ? h('hr', {className: 'fpb-panel-rule'}) : null,
           panels.palette ? paletteBody() : null),
         h('div', {className: 'fpb-canvas'},
           h('div', {className: 'fpb-stage', style: {width}},
-            h(Canvas, {frameHtml, markup: compile(activeElements, selected, {...media, site_logo: siteLogos}, defaults, pagePaths, buttonStyles), selected, motionPreview, pageId: chromeOnly ? null : id, onSelect: (nextId) => { setSelected(nextId); if (nextId) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onRemove: remove, onText: editText, onResizeColumns: resizeColumnWidths, onAddAdjacentColumn: addAdjacentColumn, dragKind}))),
+            h(Canvas, {frameHtml, markup: compile(activeElements, selected, {...media, site_logo: siteLogos}, defaults, pagePaths, buttonStyles, data.menus || [], t), selected, motionPreview, pageId: chromeOnly ? null : id, onSelect: (nextId) => { setSelected(nextId); if (nextId) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onRemove: remove, onText: editText, onResizeColumns: resizeColumnWidths, onAddAdjacentColumn: addAdjacentColumn, dragKind}))),
         h('aside', {className: 'fpb-side' + (panels.side ? '' : ' is-closed')},
-          h('div', {className: 'fpb-panel-head'}, h('p', null, 'Структура'), panelToggle('side', 'Скрий структурата', 'Покажи структурата')),
+          h('div', {className: 'fpb-panel-head'}, h('p', null, t('Structure')), panelToggle('side', 'Hide structure', 'Show structure')),
           panels.side ? h('hr', {className: 'fpb-panel-rule'}) : null,
-          panels.side ? (activeElements.length ? h(StructureTree, {elements: activeElements, selected, onSelect: setSelected, onMove: reorder, device}) : h('p', {className: 'fpb-muted'}, 'Няма елементи')) : null)),
+          panels.side ? (activeElements.length ? h(StructureTree, {elements: activeElements, selected, onSelect: setSelected, onMove: reorder, device}) : h('p', {className: 'fpb-muted'}, t('No elements yet.'))) : null)),
       h('footer', {className: 'fpb-path'},
-        h('nav', {className: 'fpb-crumbs', 'aria-label': 'Вложеност'},
-          h('button', {type: 'button', className: selected ? '' : 'is-active', onClick: () => setSelected(null)}, editingChrome ? 'Структура' : 'Страница'),
+        h('nav', {className: 'fpb-crumbs', 'aria-label': t('Element hierarchy')},
+          h('button', {type: 'button', className: selected ? '' : 'is-active', onClick: () => setSelected(null)}, editingChrome ? t('Structure') : t('Page')),
           elementPath(activeElements, selected).flatMap((element, index, trail) => [
             h('span', {key: 'sep-' + element.id, 'aria-hidden': true}, '/'),
-            h('button', {key: element.id, type: 'button', className: element.id === selected ? 'is-active' : '', onClick: () => setSelected(element.id)}, crumbName(element, trail)),
+            h('button', {key: element.id, type: 'button', className: element.id === selected ? 'is-active' : '', onClick: () => setSelected(element.id)}, crumbName(element, trail, t)),
           ]))),
       h(C.ConfirmDialog, {
         open: conflict,
-        title: 'Страницата е променена',
-        message: 'Някой е записал страницата, след като я отворихте. Записът върху промените замества това съдържание.',
-        confirmLabel: 'Запиши върху',
+        title: t('Page has changed'),
+        message: t('Someone saved this page after you opened it. Overwriting will replace that content.'),
+        confirmLabel: t('Overwrite'),
         onConfirm: () => save(true),
         onCancel: () => setConflict(false),
       }));
@@ -567,9 +573,9 @@ export function createPage(host) {
     const id = parsePath(path);
     if (!id) {
       return h('div', {className: 'fpb-intro'},
-        h('h1', null, 'Page Builder'),
-        h('p', null, 'Отворете страница от „Действия“ → „Отвори в Page Builder“, или Header/Footer от „Headers & Footers“.'),
-        h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate('/pages')}, 'Към страниците'));
+        h('h1', null, t('Page Builder')),
+        h('p', null, t('Open a page from its Actions menu with “Open in Page Builder”, or edit a Header or Footer from “Headers & Footers”.')),
+        h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate('/pages')}, t('Go to pages')));
     }
     return h(React.Fragment, null,
       h('link', {rel: 'stylesheet', href: stylesheet}),

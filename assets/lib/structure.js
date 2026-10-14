@@ -32,7 +32,7 @@ function playTreeFlip(root, before) {
   });
 }
 
-function structureRows(h, elements, selected, onSelect, nested, draggingId, device) {
+function structureRows(h, elements, selected, onSelect, nested, draggingId, device, t) {
   return elements.map((element, index) => {
     const hidden = deviceView(element, device).hidden === true;
     return h('li', {
@@ -45,14 +45,15 @@ function structureRows(h, elements, selected, onSelect, nested, draggingId, devi
         className: [element.id === selected ? 'is-active' : '', hidden ? 'is-hidden' : ''].filter(Boolean).join(' '),
         'data-fpb-id': element.id,
         onClick: () => onSelect(element.id),
-      }, elementLabel(element, index), hidden ? h('span', {className: 'fpb-tree-hidden'}, 'скрита') : null),
-      isContainer(element.type) && (element.children || []).length ? h('ul', null, structureRows(h, element.children, selected, onSelect, true, draggingId, device)) : null);
+      }, elementLabel(element, index, t), hidden ? h('span', {className: 'fpb-tree-hidden'}, t('Hidden')) : null),
+      isContainer(element.type) && (element.children || []).length ? h('ul', null, structureRows(h, element.children, selected, onSelect, true, draggingId, device, t)) : null);
   });
 }
 
 export function createStructureTree(host) {
   const {React} = host;
   const h = React.createElement;
+  const t = host.i18n.t;
 
   return function StructureTree({elements, selected, onSelect, onMove, device = 'desktop'}) {
     const [preview, setPreview] = React.useState(null);
@@ -154,6 +155,6 @@ export function createStructureTree(host) {
         event.preventDefault();
         event.stopPropagation();
       },
-    }, h('ul', null, structureRows(h, preview || elements, selected, onSelect, false, draggingId, device)));
+    }, h('ul', null, structureRows(h, preview || elements, selected, onSelect, false, draggingId, device, t)));
   };
 }

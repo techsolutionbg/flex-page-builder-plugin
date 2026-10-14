@@ -5,8 +5,10 @@ export function createPageChromePanel(host) {
   const {React, request, toast} = host;
   const C = host.components;
   const h = React.createElement;
+  const t = host.i18n.t;
 
   return function PageChromePanel({context}) {
+    host.i18n.useLocale();
     const pageId = Number(context?.id);
     const [headerId, setHeaderId] = React.useState('');
     const [footerId, setFooterId] = React.useState('');
@@ -33,7 +35,7 @@ export function createPageChromePanel(host) {
           setHeaders(Array.isArray(payload.headers) ? payload.headers : []);
           setFooters(Array.isArray(payload.footers) ? payload.footers : []);
         })
-        .catch((error) => { if (live) setFailure(error.message); })
+        .catch((error) => { if (live) setFailure(t(error.message)); })
         .finally(() => { if (live) setLoading(false); });
       return () => { live = false; };
     }, [pageId]);
@@ -52,32 +54,32 @@ export function createPageChromePanel(host) {
         setHeaders(Array.isArray(payload.headers) ? payload.headers : []);
         setFooters(Array.isArray(payload.footers) ? payload.footers : []);
         saved?.();
-        toast?.success?.('Header и Footer са записани.');
+        toast?.success?.(t('Header and Footer saved.'));
       } catch (error) {
-        setFailure(error.message);
-        toast?.error?.(error.message);
+        setFailure(t(error.message));
+        toast?.error?.(t(error.message));
       } finally {
         setSaving(false);
       }
     }
 
     if (!Number.isInteger(pageId) || pageId < 1) {
-      return h('p', {className: 'fpb-muted'}, 'Запазете страницата, за да изберете Header и Footer.');
+      return h('p', {className: 'fpb-muted'}, t('Save the page to choose a Header and Footer.'));
     }
     if (loading) {
-      return h('p', {className: 'fpb-muted'}, 'Зареждане…');
+      return h('p', {className: 'fpb-muted'}, t('Loading…'));
     }
 
     return h('div', {className: 'react-form-grid'},
       failure ? h('div', {className: 'react-form-error', role: 'alert'}, failure) : null,
-      h('p', {className: 'fpb-globals-note'}, 'Празно поле ползва chrome на активната тема. Дизайните се управляват от „Headers & Footers“.'),
+      h('p', {className: 'fpb-globals-note'}, t('An empty field uses the active theme’s Header or Footer. Manage designs in “Headers & Footers”.')),
       h('label', {className: 'react-form-field'},
         h('span', null, 'Header'),
         h('select', {
           value: headerId,
           onChange: (event) => { setHeaderId(event.target.value); changed?.(); },
         },
-          h('option', {value: ''}, 'От темата'),
+      h('option', {value: ''}, t('Use theme default')),
           ...headers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Header')))),
       h('label', {className: 'react-form-field'},
         h('span', null, 'Footer'),
@@ -85,9 +87,9 @@ export function createPageChromePanel(host) {
           value: footerId,
           onChange: (event) => { setFooterId(event.target.value); changed?.(); },
         },
-          h('option', {value: ''}, 'От темата'),
+      h('option', {value: ''}, t('Use theme default')),
           ...footers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Footer')))),
       h('div', {className: 'react-form-actions'},
-        h(C.LoadingButton, {type: 'button', loading: saving, onClick: save}, 'Запази Header/Footer')));
+      h(C.LoadingButton, {type: 'button', loading: saving, onClick: save}, t('Save Header and Footer'))));
   };
 }

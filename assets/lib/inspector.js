@@ -14,8 +14,9 @@ export function createInspector(host) {
   const {React} = host;
   const C = host.components;
   const h = React.createElement;
+  const t = host.i18n.t;
 
-  return function Inspector({element, onChange, onRemove, onMove, onAddColumns, onPreviewAnimation, mode, device = 'desktop', onDevice, pages = [], buttonStyles = [], defaults: typeDefaults = {}, siteLogos = {}, collapseAllRef}) {
+  return function Inspector({element, onChange, onRemove, onMove, onAddColumns, onPreviewAnimation, mode, device = 'desktop', onDevice, pages = [], menus = [], buttonStyles = [], defaults: typeDefaults = {}, siteLogos = {}, collapseAllRef}) {
     const [collapsed, setCollapsed] = React.useState(() => {
       try {
         const stored = JSON.parse(sessionStorage.getItem('fpb-inspector-collapsed') || '{}');
@@ -34,14 +35,14 @@ export function createInspector(host) {
     const isDefaults = mode === 'defaults';
     if (!element) {
       return h('p', {className: 'fpb-muted'}, isDefaults
-        ? 'Изберете тип елемент, за да зададете вид по подразбиране за всички страници.'
-        : 'Изберете елемент от платното, за да промените текста, изображението или връзката му.');
+        ? t('Choose an element type to set defaults for all pages.')
+        : t('Choose an element on the canvas to edit its text, image, or link.'));
     }
     const view = deviceView(element, device);
     const desktop = device === 'desktop';
     const inherited = isDefaults ? {} : inheritedStyle(element, typeDefaults, buttonStyles);
     const fromDesign = !isDefaults && element.type === 'button' && !!element.button_style_id;
-    const inheritLabel = !desktop ? 'От бюро' : (fromDesign ? 'От дизайна' : 'По подразбиране');
+    const inheritLabel = !desktop ? t('From Desktop') : (fromDesign ? t('From style') : t('Default'));
     const set = (patch) => onChange({...element, ...patch});
     const setStyle = (patch) => onChange(devicePatch(element, device, patch));
     const isOverridden = (key) => {
@@ -82,6 +83,12 @@ export function createInspector(host) {
       'Маркер': 'List Marker',
       'Цвят на маркера': 'Marker Color',
       'Разстояние между редовете (px)': 'Item Spacing (px)',
+      'Източник и посока на менюто': 'Menu and Layout',
+      'Меню': 'Menu',
+      'Позициониране': 'Position',
+      'Подредба на елементите': 'Item Direction',
+      'Хоризонтално подравняване': 'Horizontal Alignment',
+      'Вертикално подравняване на менюто': 'Vertical Alignment',
       'Височина (px)': 'Height (px)',
       'Видимост': 'Visibility',
       'Цяла ширина на страницата': 'Full Page Width',
@@ -144,7 +151,7 @@ export function createInspector(host) {
     const field = (label, child, key) => {
       const over = key && isOverridden(key);
       return h('label', {key: key || label, className: 'fpb-field' + (over ? ' is-override' : '')},
-        h('span', null, fieldLabel(label), over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: (event) => { event.preventDefault(); setStyle({[key]: null}); }}, 'Наследи') : null),
+        h('span', null, fieldLabel(label), over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: (event) => { event.preventDefault(); setStyle({[key]: null}); }}, t('Inherit')) : null),
         child);
     };
     const colorControl = (label, key) => {
@@ -152,9 +159,9 @@ export function createInspector(host) {
       const inheritedColor = colorValue(inherited[key]);
       const over = isOverridden(key);
       return h('div', {className: 'fpb-color' + (over ? ' is-override' : ''), key},
-        h('span', null, fieldLabel(label), over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({[key]: null})}, 'Наследи') : null),
+        h('span', null, fieldLabel(label), over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({[key]: null})}, t('Inherit')) : null),
         h('input', {type: 'color', value: local || inheritedColor || '#ffffff', 'aria-label': fieldLabel(label), onChange: (event) => setStyle({[key]: event.target.value})}),
-        local && !over ? h('button', {type: 'button', onClick: () => setStyle({[key]: null})}, desktop ? 'Без' : 'Наследи') : null);
+        local && !over ? h('button', {type: 'button', onClick: () => setStyle({[key]: null})}, desktop ? t('None') : t('Inherit')) : null);
     };
     const sizeField = field('Размер на текста (px)', h(C.Input, {type: 'number', min: 8, max: 160, value: view.size == null ? '' : String(view.size), placeholder: placeholderFor('size'), onChange: (event) => setStyle({size: event.target.value === '' ? null : Number(event.target.value)})}), 'size');
     const lineField = field('Междуредие', h(C.Input, {type: 'number', min: 0.8, max: 3, step: 0.1, value: view.line_height == null ? '' : String(view.line_height), placeholder: placeholderFor('line_height'), onChange: (event) => setStyle({line_height: event.target.value === '' ? null : Number(event.target.value)})}), 'line_height');
@@ -162,7 +169,7 @@ export function createInspector(host) {
     const verticalAlignField = field('Вертикално подравняване', h('select', {
       value: desktop || deviceHas(element, device, 'vertical_align') ? (view.vertical_align || '') : '',
       onChange: (event) => setStyle({vertical_align: event.target.value || null}),
-    }, [h('option', {key: 'inherit', value: ''}, inheritLabel), ...[['start', 'Горе'], ['center', 'Център'], ['end', 'Долу']].map(([value, label]) => h('option', {key: value, value}, label))]), 'vertical_align');
+    }, [h('option', {key: 'inherit', value: ''}, inheritLabel), ...[['start', 'Top'], ['center', 'Center'], ['end', 'Bottom']].map(([value, label]) => h('option', {key: value, value}, t(label)))]), 'vertical_align');
     const weightField = field('Дебелина', h('select', {value: view.weight == null ? '' : String(view.weight), onChange: (event) => setStyle({weight: event.target.value === '' ? null : Number(event.target.value)})},
       [h('option', {key: 'inherited', value: ''}, inherited.weight != null ? inheritLabel + ' (' + inherited.weight + ')' : inheritLabel), ...[300, 400, 500, 600, 700, 800].map((weight) => h('option', {key: weight, value: String(weight)}, String(weight)))]), 'weight');
     const fontFamilyField = field('Шрифт', h('select', {
@@ -177,12 +184,12 @@ export function createInspector(host) {
       onChange: (event) => setStyle({text_decoration: event.target.value || null}),
     }, [
       h('option', {key: 'inherit', value: ''}, inheritLabel),
-      ...[['none', 'Без'], ['underline', 'Подчертан'], ['line-through', 'Зачеркнат'], ['overline', 'Надчертан']].map(([value, label]) => h('option', {key: value, value}, label)),
+      ...[['none', 'None'], ['underline', 'Underline'], ['line-through', 'Strikethrough'], ['overline', 'Overline']].map(([value, label]) => h('option', {key: value, value}, t(label))),
     ]), 'text_decoration');
     const decorationStyleField = field('Стил на линията', h('select', {
       value: desktop || deviceHas(element, device, 'decoration_style') ? (view.decoration_style || '') : '',
       onChange: (event) => setStyle({decoration_style: event.target.value || null}),
-    }, [h('option', {key: 'inherit', value: ''}, inheritLabel), ...[['solid', 'Плътна'], ['double', 'Двойна'], ['dotted', 'Точкова'], ['dashed', 'Прекъсната'], ['wavy', 'Вълнообразна']].map(([value, label]) => h('option', {key: value, value}, label))]), 'decoration_style');
+    }, [h('option', {key: 'inherit', value: ''}, inheritLabel), ...[['solid', 'Solid'], ['double', 'Double'], ['dotted', 'Dotted'], ['dashed', 'Dashed'], ['wavy', 'Wavy']].map(([value, label]) => h('option', {key: value, value}, t(label)))]), 'decoration_style');
     const wordSpacingField = field('Разстояние между думите (px)', h(C.Input, {
       type: 'number', min: -20, max: 40,
       value: view.word_spacing == null ? '' : String(view.word_spacing),
@@ -191,22 +198,22 @@ export function createInspector(host) {
     }), 'word_spacing');
     const alignEffective = displayValue('align');
     const align = alignEffective === 'center' || alignEffective === 'right' ? alignEffective : 'left';
-    const alignField = h('div', {key: 'align', className: 'fpb-align' + (isOverridden('align') ? ' is-override' : ''), role: 'group', 'aria-label': 'Подравняване'},
-      [['left', 'Ляво', 'M4 6h16M4 12h10M4 18h16'], ['center', 'Център', 'M4 6h16M7 12h10M4 18h16'], ['right', 'Дясно', 'M4 6h16M10 12h10M4 18h16']].map(([value, label, path]) => h('button', {
+    const alignField = h('div', {key: 'align', className: 'fpb-align' + (isOverridden('align') ? ' is-override' : ''), role: 'group', 'aria-label': fieldLabel('Подравняване')},
+      [['left', 'Left', 'M4 6h16M4 12h10M4 18h16'], ['center', 'Center', 'M4 6h16M7 12h10M4 18h16'], ['right', 'Right', 'M4 6h16M10 12h10M4 18h16']].map(([value, label, path]) => h('button', {
         key: value,
         type: 'button',
         className: align === value ? 'is-active' : '',
-        'aria-label': label,
+        'aria-label': t(label),
         'aria-pressed': align === value,
         onClick: () => setStyle({align: desktop ? (value === 'left' ? null : value) : value}),
       }, h('svg', {viewBox: '0 0 24 24', width: 16, height: 16, 'aria-hidden': 'true'}, h('path', {d: path, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round'})))),
-      isOverridden('align') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({align: null})}, 'Наследи') : null);
+      isOverridden('align') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({align: null})}, t('Inherit')) : null);
     const content = [];
     const typography = [];
-    const hasTextStyle = ['heading', 'paragraph', 'button', 'list', 'html', 'shortcode'].includes(element.type);
+    const hasTextStyle = ['heading', 'paragraph', 'button', 'list', 'menu', 'html', 'shortcode'].includes(element.type);
     if (element.type === 'heading') {
       if (desktop) content.push(field('Ниво', h('select', {value: element.level == null ? '' : String(element.level), onChange: (event) => set({level: event.target.value === '' ? null : Number(event.target.value)})},
-        [h('option', {value: ''}, 'По подразбиране'), ...[1, 2, 3, 4, 5, 6].map((level) => h('option', {key: level, value: String(level)}, 'H' + level))])));
+        [h('option', {value: ''}, t('Default')), ...[1, 2, 3, 4, 5, 6].map((level) => h('option', {key: level, value: String(level)}, 'H' + level))])));
       if (!isDefaults) content.push(field('Текст', h(C.Input, {value: element.text || '', onChange: (event) => set({text: event.target.value})})));
       typography.push(fontFamilyField, sizeField, lineField, weightField, alignField, textWidthField, verticalAlignField);
     } else if (element.type === 'shortcode') {
@@ -221,16 +228,16 @@ export function createInspector(host) {
         content.push(field('Източник на изображението', h('select', {
           value: element.site_logo === true ? 'site_logo' : 'media',
           onChange: (event) => set({site_logo: event.target.value === 'site_logo'}),
-        }, [h('option', {key: 'media', value: 'media'}, 'Медийна библиотека'), h('option', {key: 'site_logo', value: 'site_logo'}, 'Лого на сайта')]), 'site_logo'));
+        }, [h('option', {key: 'media', value: 'media'}, t('Media library')), h('option', {key: 'site_logo', value: 'site_logo'}, t('Site logo'))]), 'site_logo'));
         if (element.site_logo !== true) {
           content.push(h(C.ImageField, {key: 'image', label: fieldLabel('Изображение'), value: element.media_id || null, onChange: (id) => set({media_id: id})}));
         } else {
           content.push(field('Вариант на логото', h('select', {
             value: element.site_logo_variant === 'dark' ? 'dark' : 'light',
             onChange: (event) => set({site_logo_variant: event.target.value}),
-          }, [h('option', {key: 'light', value: 'light'}, 'Лого за светла тема'), h('option', {key: 'dark', value: 'dark'}, 'Лого за тъмна тема')]), 'site_logo_variant'));
+          }, [h('option', {key: 'light', value: 'light'}, t('Light theme logo')), h('option', {key: 'dark', value: 'dark'}, t('Dark theme logo'))]), 'site_logo_variant'));
           if (!siteLogos.light && !siteLogos.dark) {
-            content.push(h('p', {key: 'site-logo-unavailable', className: 'fpb-muted'}, 'Няма зададено лого. Добавете лого от Настройки на темата → Общи настройки.'));
+            content.push(h('p', {key: 'site-logo-unavailable', className: 'fpb-muted'}, t('No logo is set. Add a logo in Theme Settings → General.')));
           }
         }
         content.push(field('Алтернативен текст', h(C.Input, {value: element.alt || '', onChange: (event) => set({alt: event.target.value})})));
@@ -243,7 +250,7 @@ export function createInspector(host) {
           'aria-pressed': (view.image_filter || 'color') === value,
           onClick: () => setStyle({image_filter: desktop ? (value === 'color' ? null : value) : value}),
         }, label)),
-        deviceHas(element, device, 'image_filter') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_filter: null})}, 'Наследи') : null));
+        deviceHas(element, device, 'image_filter') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_filter: null})}, t('Inherit')) : null));
       [
         ['Яркост (%)', 'image_brightness', 0, 200, 100],
         ['Контраст (%)', 'image_contrast', 0, 200, 100],
@@ -262,7 +269,7 @@ export function createInspector(host) {
       });
       const tintOver = deviceHas(element, device, 'image_tint') || deviceHas(element, device, 'image_tint_opacity');
       content.push(h('div', {className: 'fpb-color' + (tintOver ? ' is-override' : ''), key: 'image_tint'},
-        h('span', null, fieldLabel('Цветен филтър'), tintOver ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, 'Наследи') : null),
+        h('span', null, fieldLabel('Цветен филтър'), tintOver ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, t('Inherit')) : null),
         h('input', {
           type: 'color',
           value: colorValue(view.image_tint) || '#7c3aed',
@@ -272,7 +279,7 @@ export function createInspector(host) {
             image_tint_opacity: view.image_tint_opacity == null ? 40 : view.image_tint_opacity,
           }),
         }),
-        colorValue(view.image_tint) ? h('button', {type: 'button', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, desktop ? 'Без' : 'Наследи') : null));
+        colorValue(view.image_tint) ? h('button', {type: 'button', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, desktop ? t('None') : t('Inherit')) : null));
       if (view.image_tint) {
         content.push(field('Плътност на филтъра (%)', h(C.Input, {
           type: 'number',
@@ -292,12 +299,12 @@ export function createInspector(host) {
             value: element.button_style_id || '',
             onChange: (event) => set({button_style_id: event.target.value === '' ? null : event.target.value}),
           }, [
-            h('option', {key: '', value: ''}, 'Без / Собствен'),
-            ...buttonStyles.map((style) => h('option', {key: style.id, value: style.id}, style.name || 'Дизайн')),
+            h('option', {key: '', value: ''}, t('None / Custom')),
+            ...buttonStyles.map((style) => h('option', {key: style.id, value: style.id}, style.name || t('Design'))),
           ])));
         }
-        content.push(h('div', {className: 'fpb-columns-pick', key: 'link_type', role: 'group', 'aria-label': 'Тип на връзката'},
-          [['page', 'Страница'], ['url', 'Собствен линк']].map(([value, label]) => h('button', {
+        content.push(h('div', {className: 'fpb-columns-pick', key: 'link_type', role: 'group', 'aria-label': fieldLabel('Тип на връзката')},
+          [['page', 'Page'], ['url', 'Custom URL']].map(([value, label]) => h('button', {
             key: value,
             type: 'button',
             className: linkType === value ? 'is-active' : '',
@@ -305,18 +312,18 @@ export function createInspector(host) {
             onClick: () => set(value === 'page'
               ? {link_type: 'page', url: '#', page_id: element.page_id || null}
               : {link_type: 'url', page_id: null, url: element.url && element.url !== '#' ? element.url : '/'}),
-          }, label))));
+          }, t(label)))));
         if (linkType === 'page') {
           content.push(field('Страница', h('select', {
             value: element.page_id ? String(element.page_id) : '',
             onChange: (event) => set({page_id: event.target.value === '' ? null : Number(event.target.value), link_type: 'page'}),
           },
-            [h('option', {key: '', value: ''}, 'Избери страница'),
+            [h('option', {key: '', value: ''}, t('Select a page')),
               ...pages.map((page) => h('option', {key: page.id, value: String(page.id)}, page.title + (page.path ? ' (' + page.path + ')' : '')))])));
         } else {
           content.push(field('Адрес', h(C.Input, {
             value: element.url || '',
-            placeholder: '/kontakt или https://…',
+            placeholder: t('/contact or https://…'),
             onChange: (event) => set({url: event.target.value, link_type: 'url', page_id: null}),
           })));
         }
@@ -328,12 +335,12 @@ export function createInspector(host) {
         content.push(field('Редове, по един на ред', h(C.Textarea, {rows: 4, value: (element.items || []).join('\n'), onChange: (event) => set({items: event.target.value.split('\n')})})));
       }
       const markerOptions = element.ordered
-        ? [['decimal', 'Числа'], ['lower-alpha', 'Малки букви'], ['upper-alpha', 'Главни букви'], ['lower-roman', 'Малки римски цифри'], ['upper-roman', 'Главни римски цифри']]
-        : [['disc', 'Плътен кръг'], ['circle', 'Празен кръг'], ['square', 'Квадрат']];
+        ? [['decimal', 'Numbers'], ['lower-alpha', 'Lowercase letters'], ['upper-alpha', 'Uppercase letters'], ['lower-roman', 'Lowercase Roman numerals'], ['upper-roman', 'Uppercase Roman numerals']]
+        : [['disc', 'Solid circle'], ['circle', 'Hollow circle'], ['square', 'Square']];
       content.push(field('Маркер', h('select', {
         value: desktop || deviceHas(element, device, 'marker_style') ? (view.marker_style || '') : '',
         onChange: (event) => setStyle({marker_style: event.target.value || null}),
-      }, [h('option', {key: 'inherit', value: ''}, inheritLabel), ...markerOptions.map(([value, label]) => h('option', {key: value, value}, label))]), 'marker_style'));
+      }, [h('option', {key: 'inherit', value: ''}, inheritLabel), ...markerOptions.map(([value, label]) => h('option', {key: value, value}, t(label)))]), 'marker_style'));
       content.push(colorControl('Цвят на маркера', 'marker_color'));
       content.push(field('Разстояние между редовете (px)', h(C.Input, {
         type: 'number', min: 0, max: 64,
@@ -342,12 +349,53 @@ export function createInspector(host) {
         onChange: (event) => setStyle({list_spacing: event.target.value === '' ? null : Number(event.target.value)}),
       }), 'list_spacing'));
       typography.push(fontFamilyField, sizeField, lineField, weightField, alignField, textWidthField, verticalAlignField);
+    } else if (element.type === 'menu') {
+      if (!isDefaults) {
+        const sourceFields = [field('Меню', h('select', {
+          value: element.menu_slug || '',
+          onChange: (event) => set({menu_slug: event.target.value}),
+        }, [
+          h('option', {key: '', value: ''}, t('Select a menu')),
+          ...menus.map((menu) => h('option', {key: menu.slug, value: menu.slug}, menu.name || menu.slug)),
+        ]), 'menu_slug'), field('Подредба на елементите', h('select', {
+          value: element.menu_layout === 'horizontal' ? 'horizontal' : 'vertical',
+          onChange: (event) => set({menu_layout: event.target.value}),
+        }, [
+          h('option', {key: 'vertical', value: 'vertical'}, t('Vertical')),
+          h('option', {key: 'horizontal', value: 'horizontal'}, t('Horizontal')),
+        ]), 'menu_layout')];
+        if (menus.length === 0) {
+          sourceFields.push(h('p', {key: 'menus-empty', className: 'fpb-muted'}, t('No active menus are assigned to the current theme.')));
+        }
+        content.push(h('div', {key: 'menu-source-group', className: 'fpb-menu-settings-group'},
+          h('h4', {className: 'fpb-menu-settings-title'}, fieldLabel('Източник и посока на менюто')),
+          ...sourceFields));
+        content.push(h('div', {key: 'menu-position-group', className: 'fpb-menu-settings-group'},
+          h('h4', {className: 'fpb-menu-settings-title'}, fieldLabel('Позициониране')),
+          field('Хоризонтално подравняване', h('select', {
+            value: element.menu_horizontal_align || 'left',
+            onChange: (event) => set({menu_horizontal_align: event.target.value}),
+          }, [
+            h('option', {key: 'left', value: 'left'}, t('Left')),
+            h('option', {key: 'center', value: 'center'}, t('Center')),
+            h('option', {key: 'right', value: 'right'}, t('Right')),
+          ]), 'menu_horizontal_align'),
+          field('Вертикално подравняване на менюто', h('select', {
+            value: element.menu_vertical_align || 'top',
+            onChange: (event) => set({menu_vertical_align: event.target.value}),
+          }, [
+            h('option', {key: 'top', value: 'top'}, t('Top')),
+            h('option', {key: 'center', value: 'center'}, t('Center')),
+            h('option', {key: 'bottom', value: 'bottom'}, t('Bottom')),
+          ]), 'menu_vertical_align')));
+      }
+      typography.push(fontFamilyField, sizeField, lineField, weightField, alignField, textWidthField, verticalAlignField);
     } else if (element.type === 'spacer') {
       content.push(field('Височина (px)', h(C.Input, {type: 'number', min: 8, max: 160, value: view.height == null ? '' : String(view.height), placeholder: isDefaults ? inheritLabel : (desktop ? '32' : inheritLabel), onChange: (event) => setStyle({height: event.target.value === '' ? null : Number(event.target.value)})}), 'height'));
     } else if (element.type === 'section') {
       const hidden = view.hidden === true;
       content.push(h('div', {className: 'fpb-columns-pick' + (deviceHas(element, device, 'hidden') ? ' is-override' : ''), key: 'hidden', role: 'group', 'aria-label': fieldLabel('Видимост')},
-        [['show', 'Покажи'], ['hide', 'Скрий']].map(([value, label]) => h('button', {
+        [['show', 'Show'], ['hide', 'Hide']].map(([value, label]) => h('button', {
           key: value,
           type: 'button',
           className: (hidden ? 'hide' : 'show') === value ? 'is-active' : '',
@@ -360,10 +408,10 @@ export function createInspector(host) {
             if (value === 'hide') setStyle({hidden: element.hidden === true ? null : true});
             else setStyle({hidden: element.hidden === true ? false : null});
           },
-        }, label)),
-        deviceHas(element, device, 'hidden') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({hidden: null})}, 'Наследи') : null));
+        }, t(label))),
+      deviceHas(element, device, 'hidden') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({hidden: null})}, t('Inherit')) : null));
       if (hidden && !isDefaults) {
-        content.push(h('p', {key: 'hidden-note', className: 'fpb-muted'}, 'Секцията остава видима тук, но не се показва на сайта.'));
+      content.push(h('p', {key: 'hidden-note', className: 'fpb-muted'}, t('The section stays visible here but is hidden on the live site.')));
       }
       content.push(h(C.CheckboxField, {
         key: 'full_width',
@@ -390,7 +438,7 @@ export function createInspector(host) {
           'aria-pressed': active === value,
           onClick: () => desktop ? onChange(resizeColumns(element, value)) : setStyle({columns: value}),
         }, String(value))),
-        deviceHas(element, device, 'columns') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({columns: null})}, 'Наследи') : null));
+      deviceHas(element, device, 'columns') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({columns: null})}, t('Inherit')) : null));
     }
     if (typography.length) {
       typography.push(colorControl('Цвят на текста', 'color'), textDecorationField, wordSpacingField);
@@ -404,8 +452,8 @@ export function createInspector(host) {
           onChange: (event) => setStyle({decoration_thickness: event.target.value === '' ? null : Number(event.target.value)}),
         }), 'decoration_thickness'));
       }
-      typography.push(h('div', {className: 'fpb-columns-pick', key: 'shadow-presets', role: 'group', 'aria-label': 'Пресет на сянката'},
-        [['standard', 'Стандарт'], ['soft', 'Лека'], ['medium', 'Средна'], ['strong', 'Силна']].map(([value, label]) => {
+      typography.push(h('div', {className: 'fpb-columns-pick', key: 'shadow-presets', role: 'group', 'aria-label': t('Shadow presets')},
+        [['standard', 'Standard'], ['soft', 'Soft'], ['medium', 'Medium'], ['strong', 'Strong']].map(([value, label]) => {
           const active = value === 'standard'
             ? !view.shadow_color
             : view.shadow_color === '#111827' && (value === 'soft' ? view.shadow_y === 1 && view.shadow_blur === 3 : value === 'medium' ? view.shadow_y === 2 && view.shadow_blur === 8 : view.shadow_y === 4 && view.shadow_blur === 14);
@@ -417,14 +465,14 @@ export function createInspector(host) {
             onClick: () => setStyle(value === 'standard'
               ? {shadow_color: null, shadow_x: null, shadow_y: null, shadow_blur: null}
               : {shadow_color: '#111827', shadow_x: 0, shadow_y: value === 'soft' ? 1 : value === 'medium' ? 2 : 4, shadow_blur: value === 'soft' ? 3 : value === 'medium' ? 8 : 14}),
-          }, label);
+          }, t(label));
         })));
       const transform = view.text_transform === 'uppercase' || view.text_transform === 'lowercase' || view.text_transform === 'capitalize' ? view.text_transform : 'none';
       typography.push(
         h(C.CheckboxField, {
           key: 'italic',
           checked: view.italic === true,
-          label: 'Курсив',
+          label: fieldLabel('Курсив'),
           onChange: (event) => {
             if (desktop) {
               setStyle({italic: event.target.checked ? true : null});
@@ -434,18 +482,18 @@ export function createInspector(host) {
             else setStyle({italic: element.italic === true ? false : null});
           },
         }),
-        h('div', {className: 'fpb-columns-pick' + (deviceHas(element, device, 'text_transform') ? ' is-override' : ''), key: 'text_transform', role: 'group', 'aria-label': 'Трансформация на текста'},
-          [['none', 'Обикновен'], ['uppercase', 'ГЛАВНИ'], ['lowercase', 'малки'], ['capitalize', 'Първа']].map(([value, label]) => h('button', {
+        h('div', {className: 'fpb-columns-pick' + (deviceHas(element, device, 'text_transform') ? ' is-override' : ''), key: 'text_transform', role: 'group', 'aria-label': fieldLabel('Трансформация на текста')},
+          [['none', 'Normal'], ['uppercase', 'UPPERCASE'], ['lowercase', 'lowercase'], ['capitalize', 'Title Case']].map(([value, label]) => h('button', {
             key: value,
             type: 'button',
             className: transform === value ? 'is-active' : '',
             'aria-pressed': transform === value,
             onClick: () => setStyle({text_transform: desktop ? (value === 'none' ? null : value) : value}),
-          }, label)),
-          deviceHas(element, device, 'text_transform') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({text_transform: null})}, 'Наследи') : null),
+          }, t(label))),
+          deviceHas(element, device, 'text_transform') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({text_transform: null})}, t('Inherit')) : null),
         field('Разредка (px)', h(C.Input, {type: 'number', min: -20, max: 20, value: view.letter_spacing == null ? '' : String(view.letter_spacing), placeholder: placeholderFor('letter_spacing'), onChange: (event) => setStyle({letter_spacing: event.target.value === '' ? null : Number(event.target.value)})}), 'letter_spacing'),
         h('div', {className: 'fpb-color' + (deviceHas(element, device, 'shadow_color') ? ' is-override' : ''), key: 'shadow_color'},
-          h('span', null, fieldLabel('Сянка'), deviceHas(element, device, 'shadow_color') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({shadow_color: null, shadow_x: null, shadow_y: null, shadow_blur: null})}, 'Наследи') : null),
+        h('span', null, fieldLabel('Сянка'), deviceHas(element, device, 'shadow_color') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({shadow_color: null, shadow_x: null, shadow_y: null, shadow_blur: null})}, t('Inherit')) : null),
           h('input', {
             type: 'color',
             value: colorValue(view.shadow_color) || '#111827',
@@ -457,7 +505,7 @@ export function createInspector(host) {
               shadow_blur: view.shadow_blur == null ? 8 : view.shadow_blur,
             }),
           }),
-          colorValue(view.shadow_color) ? h('button', {type: 'button', onClick: () => setStyle({shadow_color: null, shadow_x: null, shadow_y: null, shadow_blur: null})}, desktop ? 'Без' : 'Наследи') : null),
+        colorValue(view.shadow_color) ? h('button', {type: 'button', onClick: () => setStyle({shadow_color: null, shadow_x: null, shadow_y: null, shadow_blur: null})}, desktop ? t('None') : t('Inherit')) : null),
       );
       if (view.shadow_color) {
         typography.push(
@@ -467,19 +515,19 @@ export function createInspector(host) {
         );
       }
       typography.push(field('Контур (px)', h(C.Input, {type: 'number', min: 0, max: 8, value: view.stroke_width == null ? '' : String(view.stroke_width), placeholder: placeholderFor('stroke_width'), onChange: (event) => setStyle({stroke_width: event.target.value === '' ? null : Number(event.target.value)})}), 'stroke_width'));
-      typography.push(h('div', {className: 'fpb-columns-pick', key: 'stroke-presets', role: 'group', 'aria-label': 'Пресет на контура'},
+      typography.push(h('div', {className: 'fpb-columns-pick', key: 'stroke-presets', role: 'group', 'aria-label': t('Stroke presets')},
         [0, 1, 2, 3].map((value) => h('button', {
           key: value,
           type: 'button',
           className: (Number(view.stroke_width ?? inherited.stroke_width ?? 0) === value ? 'is-active' : ''),
           'aria-pressed': Number(view.stroke_width ?? inherited.stroke_width ?? 0) === value,
           onClick: () => setStyle({stroke_width: value}),
-        }, value === 0 ? 'Без' : value + ' px'))));
+        }, value === 0 ? t('None') : value + ' px'))));
       if (displayValue('stroke_width')) {
         const strokeLocal = colorValue(view.stroke_color);
         const strokeFrom = colorValue(inherited.stroke_color);
         typography.push(h('div', {className: 'fpb-color' + (isOverridden('stroke_color') ? ' is-override' : ''), key: 'stroke_color'},
-          h('span', null, fieldLabel('Цвят на контура'), isOverridden('stroke_color') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({stroke_color: null})}, 'Наследи') : null),
+        h('span', null, fieldLabel('Цвят на контура'), isOverridden('stroke_color') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({stroke_color: null})}, t('Inherit')) : null),
           h('input', {
             type: 'color',
             value: strokeLocal || strokeFrom || '#111827',
@@ -490,7 +538,7 @@ export function createInspector(host) {
               setStyle({stroke_color: next});
             },
           }),
-          strokeLocal ? h('button', {type: 'button', onClick: () => setStyle({stroke_color: null})}, desktop ? (isOverridden('stroke_color') ? 'Наследи' : 'Без') : 'Наследи') : null));
+        strokeLocal ? h('button', {type: 'button', onClick: () => setStyle({stroke_color: null})}, desktop ? (isOverridden('stroke_color') ? t('Inherit') : t('None')) : t('Inherit')) : null));
       }
     }
     if (element.type !== 'section') {
@@ -520,7 +568,7 @@ export function createInspector(host) {
         const shown = local || fromLayer || '#ffffff';
         const over = !shared && isOverridden(key);
         return h('div', {className: 'fpb-color' + (over ? ' is-override' : ''), key},
-          h('span', null, fieldLabel(label), over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => write({[key]: null})}, 'Наследи') : null),
+          h('span', null, fieldLabel(label), over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => write({[key]: null})}, t('Inherit')) : null),
           h('input', {
             type: 'color',
             value: shown,
@@ -531,7 +579,7 @@ export function createInspector(host) {
               write({[key]: next});
             },
           }),
-          local ? h('button', {type: 'button', onClick: () => write({[key]: null})}, shared || desktop ? (over ? 'Наследи' : 'Без') : 'Наследи') : null);
+          local ? h('button', {type: 'button', onClick: () => write({[key]: null})}, shared || desktop ? (over ? t('Inherit') : t('None')) : t('Inherit')) : null);
       };
       const numberField = (label, key, max) => field(label, h(C.Input, {type: 'number', min: 0, max, value: view[key] == null ? '' : String(view[key]), placeholder: placeholderFor(key), onChange: (event) => setStyle({[key]: event.target.value === '' ? null : Number(event.target.value)})}), key);
       appearance.push(colorField('Заден фон', 'background'));
@@ -544,8 +592,8 @@ export function createInspector(host) {
               key: item.id,
               type: 'button',
               className: element.gradient === item.id ? 'is-active' : '',
-              title: item.label,
-              'aria-label': item.label,
+              title: t(item.label),
+              'aria-label': t(item.label),
               'aria-pressed': element.gradient === item.id,
               style: {background: item.css},
               onClick: () => set({gradient: item.id}),
@@ -560,8 +608,8 @@ export function createInspector(host) {
                 gradient_to: element.gradient_to || '#0f172a',
                 gradient_angle: element.gradient_angle ?? 180,
               }),
-            }, 'Собствен'),
-            element.gradient ? h('button', {type: 'button', className: 'is-clear', onClick: () => set({gradient: null, gradient_from: null, gradient_to: null, gradient_angle: null})}, 'Без') : null),
+            }, t('Custom')),
+            element.gradient ? h('button', {type: 'button', className: 'is-clear', onClick: () => set({gradient: null, gradient_from: null, gradient_to: null, gradient_angle: null})}, t('None')) : null),
           element.gradient === 'custom' ? h('div', {className: 'fpb-gradients-custom'},
             colorField('От', 'gradient_from', true),
             colorField('До', 'gradient_to', true),
@@ -574,49 +622,49 @@ export function createInspector(host) {
               key: item.id,
               type: 'button',
               className: 'fpb-pattern-swatch fpb-pattern-' + item.id + (element.wallpaper_preset === item.id ? ' is-active' : ''),
-              title: item.label,
-              'aria-label': item.label,
+              title: t(item.label),
+              'aria-label': t(item.label),
               'aria-pressed': element.wallpaper_preset === item.id,
               onClick: () => set({wallpaper_preset: item.id, wallpaper_id: null}),
             })),
-            element.wallpaper_preset ? h('button', {type: 'button', className: 'is-clear', onClick: () => set({wallpaper_preset: null})}, 'Без') : null)));
+            element.wallpaper_preset ? h('button', {type: 'button', className: 'is-clear', onClick: () => set({wallpaper_preset: null})}, t('None')) : null)));
         appearance.push(h(C.ImageField, {
           key: 'wallpaper',
           label: fieldLabel('Собствен тапет'),
           value: element.wallpaper_id || null,
           onChange: (id) => set({wallpaper_id: id, wallpaper_preset: id ? null : element.wallpaper_preset}),
-          emptyLabel: 'Избери снимка',
-          description: 'Замества шарката. Показва се върху задния фон и градиента.',
+          emptyLabel: t('Choose an image'),
+          description: t('Replaces the pattern. It appears above the background color and gradient.'),
         }));
         if (element.wallpaper_id) {
           appearance.push(h('div', {className: 'fpb-columns-pick', key: 'wallpaper_fit', role: 'group', 'aria-label': fieldLabel('Покриване на тапета')},
-            [['cover', 'Запълни'], ['contain', 'Побери']].map(([value, label]) => h('button', {
+            [['cover', 'Cover'], ['contain', 'Contain']].map(([value, label]) => h('button', {
               key: value,
               type: 'button',
               className: (element.wallpaper_fit || 'cover') === value ? 'is-active' : '',
               'aria-pressed': (element.wallpaper_fit || 'cover') === value,
               onClick: () => set({wallpaper_fit: value === 'cover' ? null : value}),
-            }, label))));
+            }, t(label)))));
           const position = element.wallpaper_position || 'center';
           appearance.push(h('div', {className: 'fpb-wallpaper-position', key: 'wallpaper_position'},
             h('span', null, fieldLabel('Позиция на изображението')),
             h('div', {className: 'fpb-position-pick', role: 'group', 'aria-label': fieldLabel('Позиция на изображението')},
               [
-                ['top-left', 'Горе ляво'],
-                ['top-center', 'Горе'],
-                ['top-right', 'Горе дясно'],
-                ['center-left', 'Ляво'],
-                ['center', 'Център'],
-                ['center-right', 'Дясно'],
-                ['bottom-left', 'Долу ляво'],
-                ['bottom-center', 'Долу'],
-                ['bottom-right', 'Долу дясно'],
+                ['top-left', 'Top left'],
+                ['top-center', 'Top'],
+                ['top-right', 'Top right'],
+                ['center-left', 'Left'],
+                ['center', 'Center'],
+                ['center-right', 'Right'],
+                ['bottom-left', 'Bottom left'],
+                ['bottom-center', 'Bottom'],
+                ['bottom-right', 'Bottom right'],
               ].map(([value, label]) => h('button', {
                 key: value,
                 type: 'button',
                 className: position === value ? 'is-active' : '',
-                title: label,
-                'aria-label': label,
+                title: t(label),
+                'aria-label': t(label),
                 'aria-pressed': position === value,
                 onClick: () => set({wallpaper_position: value === 'center' ? null : value}),
               }, h('span', {'aria-hidden': true}))))));
@@ -624,17 +672,17 @@ export function createInspector(host) {
       }
       if (element.type === 'section' && (element.wallpaper_id || element.wallpaper_preset || isDefaults)) {
         appearance.push(h('div', {className: 'fpb-columns-pick' + (deviceHas(element, device, 'image_filter') ? ' is-override' : ''), key: 'image_filter', role: 'group', 'aria-label': fieldLabel('Цвят на тапета')},
-          [['color', 'Цветна'], ['grayscale', 'Черно-бяла']].map(([value, label]) => h('button', {
+          [['color', 'Color'], ['grayscale', 'Grayscale']].map(([value, label]) => h('button', {
             key: value,
             type: 'button',
             className: (view.image_filter || 'color') === value ? 'is-active' : '',
             'aria-pressed': (view.image_filter || 'color') === value,
             onClick: () => setStyle({image_filter: desktop ? (value === 'color' ? null : value) : value}),
-          }, label)),
-          deviceHas(element, device, 'image_filter') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_filter: null})}, 'Наследи') : null));
+          }, t(label))),
+          deviceHas(element, device, 'image_filter') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_filter: null})}, t('Inherit')) : null));
         const wallpaperTint = deviceHas(element, device, 'image_tint') || deviceHas(element, device, 'image_tint_opacity');
         appearance.push(h('div', {className: 'fpb-color' + (wallpaperTint ? ' is-override' : ''), key: 'image_tint'},
-          h('span', null, fieldLabel('Цветен филтър'), wallpaperTint ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, 'Наследи') : null),
+          h('span', null, fieldLabel('Цветен филтър'), wallpaperTint ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, t('Inherit')) : null),
           h('input', {
             type: 'color',
             value: colorValue(view.image_tint) || '#7c3aed',
@@ -644,7 +692,7 @@ export function createInspector(host) {
               image_tint_opacity: view.image_tint_opacity == null ? 40 : view.image_tint_opacity,
             }),
           }),
-          colorValue(view.image_tint) ? h('button', {type: 'button', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, desktop ? 'Без' : 'Наследи') : null));
+          colorValue(view.image_tint) ? h('button', {type: 'button', onClick: () => setStyle({image_tint: null, image_tint_opacity: null})}, desktop ? t('None') : t('Inherit')) : null));
         if (view.image_tint) {
           appearance.push(field('Плътност на филтъра (%)', h(C.Input, {
             type: 'number',
@@ -659,7 +707,7 @@ export function createInspector(host) {
       if (element.type === 'section') {
         const overColor = deviceHas(element, device, 'overlay_color') || deviceHas(element, device, 'overlay_opacity');
         appearance.push(h('div', {className: 'fpb-color' + (overColor ? ' is-override' : ''), key: 'overlay'},
-          h('span', null, fieldLabel('Overlay'), overColor ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({overlay_color: null, overlay_opacity: null})}, 'Наследи') : null),
+          h('span', null, fieldLabel('Overlay'), overColor ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({overlay_color: null, overlay_opacity: null})}, t('Inherit')) : null),
           h('input', {
             type: 'color',
             value: colorValue(view.overlay_color) || '#000000',
@@ -669,7 +717,7 @@ export function createInspector(host) {
               overlay_opacity: view.overlay_opacity == null ? 40 : view.overlay_opacity,
             }),
           }),
-          colorValue(view.overlay_color) ? h('button', {type: 'button', onClick: () => setStyle({overlay_color: null, overlay_opacity: null})}, desktop ? 'Без' : 'Наследи') : null));
+          colorValue(view.overlay_color) ? h('button', {type: 'button', onClick: () => setStyle({overlay_color: null, overlay_opacity: null})}, desktop ? t('None') : t('Inherit')) : null));
         if (view.overlay_color) {
           appearance.push(field('Плътност на overlay (%)', h(C.Input, {
             type: 'number',
@@ -693,6 +741,63 @@ export function createInspector(host) {
           colorField('Цвят на текста', 'hover_color'),
           colorField('Цвят на границата', 'hover_border_color'),
         );
+      } else if (element.type === 'menu') {
+        const menuColorField = (label, key) => {
+          const local = colorValue(element[key]);
+          const inheritedColor = colorValue(inherited[key]);
+          return h('div', {className: 'fpb-color', key},
+            h('span', null, fieldLabel(label)),
+            h('input', {
+              type: 'color',
+              value: local || inheritedColor || '#ffffff',
+              'aria-label': fieldLabel(label),
+              onChange: (event) => set({[key]: event.target.value}),
+            }),
+            local ? h('button', {type: 'button', onClick: () => set({[key]: null})}, inheritedColor ? t('Inherit') : t('None')) : null);
+        };
+        hover.push(
+          menuColorField('Hover Text Color', 'menu_hover_color'),
+          menuColorField('Hover Background Color', 'menu_hover_background'),
+          menuColorField('Hover Border Color', 'menu_hover_border_color'),
+          menuColorField('Underline Color', 'menu_hover_decoration_color'),
+          field('Hover Decoration', h('select', {
+            value: element.menu_hover_decoration || inherited.menu_hover_decoration || '',
+            onChange: (event) => set({menu_hover_decoration: event.target.value || null}),
+          }, [
+            h('option', {key: 'default', value: ''}, t('Theme default')),
+            h('option', {key: 'none', value: 'none'}, t('None')),
+            h('option', {key: 'underline', value: 'underline'}, t('Underline')),
+            h('option', {key: 'overline', value: 'overline'}, t('Overline')),
+            h('option', {key: 'line-through', value: 'line-through'}, t('Line through')),
+          ])),
+          field('Underline Thickness (px)', h(C.Input, {
+            type: 'number', min: 1, max: 8,
+            value: element.menu_hover_decoration_thickness == null ? (inherited.menu_hover_decoration_thickness == null ? '' : String(inherited.menu_hover_decoration_thickness)) : String(element.menu_hover_decoration_thickness),
+            placeholder: '2',
+            onChange: (event) => set({menu_hover_decoration_thickness: event.target.value === '' ? null : Number(event.target.value)}),
+          })),
+          field('Hover Motion', h('select', {
+            value: element.menu_hover_transform || inherited.menu_hover_transform || '',
+            onChange: (event) => set({menu_hover_transform: event.target.value || null}),
+          }, [
+            h('option', {key: 'default', value: ''}, t('Theme default')),
+            h('option', {key: 'none', value: 'none'}, t('None')),
+            h('option', {key: 'lift', value: 'lift'}, t('Lift')),
+            h('option', {key: 'grow', value: 'grow'}, t('Grow')),
+          ])),
+          field('Transition Duration (ms)', h(C.Input, {
+            type: 'number', min: 0, max: 1000, step: 50,
+            value: element.menu_hover_duration == null ? (inherited.menu_hover_duration == null ? '' : String(inherited.menu_hover_duration)) : String(element.menu_hover_duration),
+            placeholder: '200',
+            onChange: (event) => set({menu_hover_duration: event.target.value === '' ? null : Number(event.target.value)}),
+          })),
+          field('Hover Corner Radius (px)', h(C.Input, {
+            type: 'number', min: 0, max: 32,
+            value: element.menu_hover_radius == null ? (inherited.menu_hover_radius == null ? '' : String(inherited.menu_hover_radius)) : String(element.menu_hover_radius),
+            placeholder: t('Theme default'),
+            onChange: (event) => set({menu_hover_radius: event.target.value === '' ? null : Number(event.target.value)}),
+          })),
+        );
       }
     }
     const particles = [];
@@ -705,9 +810,9 @@ export function createInspector(host) {
           : {particles: event.target.value}),
       },
         [h('option', {value: ''}, inherited.particles
-          ? inheritLabel + ' (' + (PARTICLES.find((item) => item.id === inherited.particles)?.label || inherited.particles) + ')'
-          : 'Без'),
-          ...PARTICLES.map((item) => h('option', {key: item.id, value: item.id}, item.label))])));
+          ? inheritLabel + ' (' + t(PARTICLES.find((item) => item.id === inherited.particles)?.label || inherited.particles) + ')'
+          : t('None')),
+          ...PARTICLES.map((item) => h('option', {key: item.id, value: item.id}, t(item.label)))])));
       if (effect) {
         particles.push(
           h('div', {className: 'fpb-color', key: 'particles_color'},
@@ -718,7 +823,7 @@ export function createInspector(host) {
               'aria-label': fieldLabel('Цвят на частиците'),
               onChange: (event) => set({particles_color: event.target.value}),
             }),
-            colorValue(element.particles_color) ? h('button', {type: 'button', onClick: () => set({particles_color: null})}, 'Бял') : null),
+            colorValue(element.particles_color) ? h('button', {type: 'button', onClick: () => set({particles_color: null})}, t('White')) : null),
           field('Плътност (10–150)', h(C.Input, {
             type: 'number',
             min: 10,
@@ -750,9 +855,9 @@ export function createInspector(host) {
         },
       },
         [h('option', {key: 'inherited', value: ''}, inherited.animation
-          ? inheritLabel + ' (' + (ENTRANCE_ANIMATIONS.find((item) => item.id === inherited.animation)?.label || inherited.animation) + ')'
-          : 'Без'),
-          ...ENTRANCE_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, item.label))]), 'animation'),
+          ? inheritLabel + ' (' + t(ENTRANCE_ANIMATIONS.find((item) => item.id === inherited.animation)?.label || inherited.animation) + ')'
+          : t('None')),
+          ...ENTRANCE_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, t(item.label)))]), 'animation'),
     ];
     if (animEffective) {
       animation.push(
@@ -776,7 +881,7 @@ export function createInspector(host) {
       if (!isDefaults && onPreviewAnimation) {
         animation.push(
           h('div', {className: 'fpb-inspector-actions', key: 'anim-preview'},
-            h(C.Button, {type: 'button', variant: 'secondary', onClick: onPreviewAnimation}, 'Преглед')),
+            h(C.Button, {type: 'button', variant: 'secondary', onClick: onPreviewAnimation}, t('Preview'))),
         );
       }
     }
@@ -786,9 +891,9 @@ export function createInspector(host) {
         onChange: (event) => setStyle({hover_animation: event.target.value === '' ? null : event.target.value}),
       },
         [h('option', {key: 'inherited', value: ''}, inherited.hover_animation
-          ? inheritLabel + ' (' + (HOVER_ANIMATIONS.find((item) => item.id === inherited.hover_animation)?.label || inherited.hover_animation) + ')'
-          : 'Без'),
-          ...HOVER_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, item.label))]), 'hover_animation'),
+          ? inheritLabel + ' (' + t(HOVER_ANIMATIONS.find((item) => item.id === inherited.hover_animation)?.label || inherited.hover_animation) + ')'
+          : t('None')),
+          ...HOVER_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, t(item.label)))]), 'hover_animation'),
     );
     const boxSides = [
       ['top', 'Горе'],
@@ -814,13 +919,13 @@ export function createInspector(host) {
       isDefaults ? null : ['Позиция', [
         field('Име в структурата', h(C.Input, {
           value: element.name || '',
-          placeholder: elementLabel({...element, name: null}),
+          placeholder: elementLabel({...element, name: null}, undefined, t),
           onChange: (event) => set({name: event.target.value.trim() === '' ? null : event.target.value}),
         })),
         h('div', {className: 'fpb-inspector-actions', key: 'actions'},
-        h(C.Button, {type: 'button', variant: 'secondary', onClick: () => onMove(-1)}, 'Нагоре'),
-        h(C.Button, {type: 'button', variant: 'secondary', onClick: () => onMove(1)}, 'Надолу'),
-        h(C.Button, {type: 'button', variant: 'secondary', onClick: onRemove}, 'Изтрий')),
+        h(C.Button, {type: 'button', variant: 'secondary', onClick: () => onMove(-1)}, t('Move up')),
+        h(C.Button, {type: 'button', variant: 'secondary', onClick: () => onMove(1)}, t('Move down')),
+        h(C.Button, {type: 'button', variant: 'secondary', onClick: onRemove}, t('Delete'))),
       ]],
       ['Съдържание', content],
       ['Текст', typography],
@@ -876,7 +981,13 @@ export function createInspector(host) {
         {key: 'hover', title: 'Hover Animation', fields: ['hover_animation']},
       ];
       if (title === 'Hover') return [
-        {key: 'hover-colors', title: 'Hover Colors', fields: ['hover_background', 'hover_color', 'hover_border_color']},
+        element.type === 'menu'
+          ? {key: 'menu-link-colors', title: 'Link Hover Colors', fields: ['menu_hover_color', 'menu_hover_background', 'menu_hover_border_color']}
+          : {key: 'hover-colors', title: 'Hover Colors', fields: ['hover_background', 'hover_color', 'hover_border_color']},
+        ...(element.type === 'menu' ? [
+          {key: 'menu-decoration', title: 'Hover Decoration', fields: ['menu_hover_decoration_color', 'Hover Decoration', 'Underline Thickness (px)', 'Hover Corner Radius (px)']},
+          {key: 'menu-motion', title: 'Hover Motion', fields: ['Hover Motion', 'Transition Duration (ms)']},
+        ] : []),
       ];
       return [{key: 'settings', title: 'Settings', fields: []}];
     };
@@ -929,12 +1040,12 @@ export function createInspector(host) {
     const deviceLabel = deviceLabels[device] || 'Desktop';
     return h('div', {className: 'fpb-inspector'},
       h('div', {className: 'fpb-inspector-device'},
-        h('div', {className: 'fpb-devices', role: 'group', 'aria-label': 'Устройство'},
+        h('div', {className: 'fpb-devices', role: 'group', 'aria-label': t('Preview device')},
           WIDTHS.map((item) => h('button', {
             key: item.id,
             type: 'button',
             className: item.id === device ? 'is-active' : '',
-            'aria-label': deviceLabels[item.id],
+            'aria-label': t(item.label),
             onClick: () => onDevice?.(item.id),
           },
             h('svg', {viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true'},
@@ -943,8 +1054,8 @@ export function createInspector(host) {
                 : item.id === 'tablet'
                   ? [h('rect', {key: 'body', x: 5, y: 2.5, width: 14, height: 19, rx: 2}), h('path', {key: 'home', d: 'M11 18.5h2'})]
                   : [h('rect', {key: 'body', x: 7, y: 2.5, width: 10, height: 19, rx: 2}), h('path', {key: 'home', d: 'M11 18.5h2'})]),
-            h('span', null, deviceLabels[item.id])))),
-        desktop ? null : h('p', {className: 'fpb-device-note'}, 'Промените важат само за „' + deviceLabel + '“. Празно поле остава както на Desktop.')),
+            h('span', null, t(item.label))))),
+        desktop ? null : h('p', {className: 'fpb-device-note'}, t('Changes apply only to “{device}”. Leave a field blank to keep the Desktop value.', {device: t(deviceLabel)}))),
       sections.map(([title, fields]) => {
         const closed = collapsed[title] === true;
         return h('section', {className: 'fpb-section' + (closed ? ' is-collapsed' : ''), key: title},

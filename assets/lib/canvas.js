@@ -1,4 +1,4 @@
-const CANVAS_STYLE = 'html,body{overflow-x:clip}.corp-main--builder{padding-top:0;padding-bottom:0}[data-flex-page-builder-slot]{min-height:8rem}.fpb-element,.fpb-section,.fpb-columns,.fpb-column{position:relative;outline:1px dashed transparent;outline-offset:4px}.fpb-section,.fpb-columns,.fpb-column{display:grid;gap:.75rem;margin:.4rem 0;outline-color:#cbd5e1;min-width:0}.fpb-section{padding-block:2rem}.fpb-section .fpb-section{margin-block:.5rem;padding-block:1.25rem}.fpb-section-wallpaper{position:absolute;inset:0;z-index:0;pointer-events:none;background-position:center;background-repeat:no-repeat}.fpb-section-wallpaper.fpb-pattern{background-repeat:repeat;background-size:128px}.fpb-section-overlay{position:absolute;inset:0;z-index:1;pointer-events:none}.fpb-section-particles{position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none}.fpb-section-particles>canvas{display:block;width:100%;height:100%}.fpb-section>:not(.fpb-section-wallpaper):not(.fpb-section-overlay):not(.fpb-section-particles){position:relative;z-index:2}.fpb-section-body>.fpb-element:first-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-start:0}.fpb-section-body>.fpb-element:last-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-end:0}.fpb-section.fpb-section--full{width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:0}.fpb-section .fpb-section.fpb-section--full{width:100%;max-width:none;margin-inline:0}.fpb-section--boxed{box-sizing:border-box;width:100%;max-width:var(--corp-max-width,72rem);margin-inline:auto;padding-inline:var(--corp-gutter,clamp(1rem,4vw,2rem))}.fpb-is-hidden{opacity:.42;outline-color:#94a3b8}.fpb-section.fpb-is-hidden,.fpb-columns.fpb-is-hidden,.fpb-column.fpb-is-hidden{display:grid!important}.fpb-element.fpb-is-hidden{display:block!important}.fpb-is-hidden::after{content:"Скрита";position:absolute;z-index:4;top:.35rem;right:.45rem;padding:.15rem .4rem;border-radius:.25rem;background:#111827;color:#fff;font:600 .65rem/1.2 system-ui,sans-serif;pointer-events:none}.fpb-photo{position:relative;display:block;isolation:isolate;line-height:0}.fpb-photo img{display:block;width:100%;height:auto}.fpb-photo img{filter:var(--fpb-image-filter,none)!important}.fpb-section-wallpaper{filter:var(--fpb-image-filter,none)}.fpb-photo--grayscale img,.fpb-section-wallpaper.fpb-photo--grayscale,.fpb-section-wallpaper.fpb-photo--grayscale img{filter:var(--fpb-image-filter,grayscale(1))!important}.fpb-photo--tint::after,.fpb-section-wallpaper.fpb-photo--tint::after{content:"";position:absolute;inset:0;background:var(--fpb-tint,transparent);opacity:var(--fpb-tint-opacity,.4);mix-blend-mode:color;pointer-events:none}.fpb-element{cursor:pointer}.fpb-element.is-selected,.fpb-section.is-selected,.fpb-columns.is-selected,.fpb-column.is-selected{outline-color:#2563eb}.fpb-section-body,.fpb-column-body{display:grid;gap:1rem;min-height:4.5rem}.fpb-column-resize{position:absolute;z-index:6;top:0;right:-12px;bottom:0;width:12px;margin:0;padding:0;border:0;background:transparent;cursor:col-resize;touch-action:none;opacity:0}.fpb-column-resize::after{position:absolute;top:25%;bottom:25%;left:5px;width:2px;border-radius:2px;background:#2563eb;content:""}.fpb-column:hover>.fpb-column-resize,.fpb-column-resize:focus-visible{opacity:1}.fpb-element>.fpb-drag,.fpb-section>.fpb-drag,.fpb-columns>.fpb-drag,.fpb-column>.fpb-drag{position:absolute;z-index:2;top:.2rem;left:.2rem;width:1.7rem;height:.55rem;margin:0;padding:0;border:0;border-radius:999px;background:#2563eb;transform:none;cursor:grab;opacity:0}.fpb-element:hover>.fpb-drag,.fpb-element.is-selected>.fpb-drag,.fpb-section:hover>.fpb-drag,.fpb-section.is-selected>.fpb-drag,.fpb-columns:hover>.fpb-drag,.fpb-columns.is-selected>.fpb-drag,.fpb-column:hover>.fpb-drag,.fpb-column.is-selected>.fpb-drag{opacity:1}.fpb-drag:active{cursor:grabbing}.fpb-drop-before{box-shadow:inset 0 3px 0 #2563eb}.fpb-drop-after{box-shadow:inset 0 -3px 0 #2563eb}.fpb-section-body.fpb-drop-inside,.fpb-column-body.fpb-drop-inside{outline:2px solid #2563eb}[contenteditable]{cursor:text}[contenteditable]:focus{outline:none}.fpb-empty{margin:0;padding:2.5rem 1rem;text-align:center;color:#6b7280}.fpb-section,.fpb-column{margin-block:0;padding-block:0}.fpb-section .fpb-section{margin-block:0;padding-block:0}.fpb-root,.fpb-section,.fpb-columns,.fpb-column,.fpb-section-body,.fpb-column-body{gap:0}.fpb-section,.fpb-columns,.fpb-column{margin-block:0}';
+const CANVAS_STYLE = 'html,body{overflow-x:clip}.corp-main--builder{padding-top:0;padding-bottom:0}[data-flex-page-builder-slot]{min-height:8rem}.fpb-element,.fpb-section,.fpb-columns,.fpb-column{position:relative;outline:1px dashed transparent;outline-offset:4px}.fpb-section,.fpb-columns,.fpb-column{display:grid;gap:.75rem;margin:.4rem 0;outline-color:#cbd5e1;min-width:0}.fpb-section{padding-block:2rem}.fpb-section .fpb-section{margin-block:.5rem;padding-block:1.25rem}.fpb-section-wallpaper{position:absolute;inset:0;z-index:0;pointer-events:none;background-position:center;background-repeat:no-repeat}.fpb-section-wallpaper.fpb-pattern{background-repeat:repeat;background-size:128px}.fpb-section-overlay{position:absolute;inset:0;z-index:1;pointer-events:none}.fpb-section-particles{position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none}.fpb-section-particles>canvas{display:block;width:100%;height:100%}.fpb-section>:not(.fpb-section-wallpaper):not(.fpb-section-overlay):not(.fpb-section-particles):not(.fpb-element-actions){position:relative;z-index:2}.fpb-section-body>.fpb-element:first-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-start:0}.fpb-section-body>.fpb-element:last-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-end:0}.fpb-section.fpb-section--full{width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:0}.fpb-section .fpb-section.fpb-section--full{width:100%;max-width:none;margin-inline:0}.fpb-section--boxed{box-sizing:border-box;width:100%;max-width:var(--corp-max-width,72rem);margin-inline:auto;}.fpb-is-hidden{opacity:.42;outline-color:#94a3b8}.fpb-section.fpb-is-hidden,.fpb-columns.fpb-is-hidden,.fpb-column.fpb-is-hidden{display:grid!important}.fpb-element.fpb-is-hidden{display:block!important}.fpb-is-hidden::after{content:"Скрита";position:absolute;z-index:4;top:.35rem;right:.45rem;padding:.15rem .4rem;border-radius:.25rem;background:#111827;color:#fff;font:600 .65rem/1.2 system-ui,sans-serif;pointer-events:none}.fpb-photo{position:relative;display:block;isolation:isolate;line-height:0}.fpb-photo img{display:block;width:100%;height:auto}.fpb-photo img{filter:var(--fpb-image-filter,none)!important}.fpb-section-wallpaper{filter:var(--fpb-image-filter,none)}.fpb-photo--grayscale img,.fpb-section-wallpaper.fpb-photo--grayscale,.fpb-section-wallpaper.fpb-photo--grayscale img{filter:var(--fpb-image-filter,grayscale(1))!important}.fpb-photo--tint::after,.fpb-section-wallpaper.fpb-photo--tint::after{content:"";position:absolute;inset:0;background:var(--fpb-tint,transparent);opacity:var(--fpb-tint-opacity,.4);mix-blend-mode:color;pointer-events:none}.fpb-element{cursor:pointer}.fpb-element.is-selected,.fpb-section.is-selected,.fpb-columns.is-selected,.fpb-column.is-selected{outline-color:#2563eb}.fpb-section-body,.fpb-column-body{display:grid;gap:1rem;min-height:4.5rem}.fpb-column-resize{position:absolute;z-index:6;top:0;right:-12px;bottom:0;width:12px;margin:0;padding:0;border:0;background:transparent;cursor:col-resize;touch-action:none;opacity:0}.fpb-column-resize::after{position:absolute;top:25%;bottom:25%;left:5px;width:2px;border-radius:2px;background:#2563eb;content:""}.fpb-column:hover>.fpb-column-resize,.fpb-column-resize:focus-visible{opacity:1}.fpb-element>.fpb-drag,.fpb-section>.fpb-drag,.fpb-columns>.fpb-drag,.fpb-column>.fpb-drag{position:absolute;z-index:2;top:.2rem;left:.2rem;width:1.7rem;height:.55rem;margin:0;padding:0;border:0;border-radius:999px;background:#2563eb;transform:none;cursor:grab;opacity:0}.fpb-element:hover>.fpb-drag,.fpb-element.is-selected>.fpb-drag,.fpb-section:hover>.fpb-drag,.fpb-section.is-selected>.fpb-drag,.fpb-columns:hover>.fpb-drag,.fpb-columns.is-selected>.fpb-drag,.fpb-column:hover>.fpb-drag,.fpb-column.is-selected>.fpb-drag{opacity:1}.fpb-drag:active{cursor:grabbing}.fpb-drop-before{box-shadow:inset 0 3px 0 #2563eb}.fpb-drop-after{box-shadow:inset 0 -3px 0 #2563eb}.fpb-section-body.fpb-drop-inside,.fpb-column-body.fpb-drop-inside{outline:2px solid #2563eb}[contenteditable]{cursor:text}[contenteditable]:focus{outline:none}.fpb-empty{margin:0;padding:2.5rem 1rem;text-align:center;color:#6b7280}.fpb-section,.fpb-column{margin-block:0;padding-block:0}.fpb-section .fpb-section{margin-block:0;padding-block:0}.fpb-root,.fpb-section,.fpb-columns,.fpb-column,.fpb-section-body,.fpb-column-body{gap:0}.fpb-section,.fpb-columns,.fpb-column{margin-block:0}';
 
 const SELECTION_STYLE = '.fpb-element-actions{position:absolute;z-index:7;top:.2rem;left:50%;display:flex;align-items:center;gap:.35rem;width:max-content;transform:translateX(-50%)}.fpb-delete,.fpb-column-add{position:static;display:inline-flex;align-items:center;justify-content:center;width:1.65rem;height:1.65rem;margin:0;padding:0;border:1px solid var(--control-border,#526456);border-radius:.45rem;background:var(--control-bg,#1b2820);color:var(--control-text,#f2f5f1);line-height:0;cursor:pointer;box-shadow:0 2px 8px rgb(0 0 0 / 25%);transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}.fpb-delete svg,.fpb-column-add svg{display:block;width:1rem;height:1rem}.fpb-delete:hover,.fpb-column-add:hover{border-color:var(--border-strong,#78917d);background:var(--surface-hover,#293a2f);transform:scale(1.05)}.fpb-delete:active,.fpb-column-add:active{transform:scale(.96)}.fpb-delete:focus-visible,.fpb-column-add:focus-visible{outline:2px solid var(--focus-ring,#8fb397);outline-offset:2px}';
 
@@ -114,7 +114,7 @@ function sameIds(markup, slot) {
   return (markup.match(/data-fpb-id="/g) || []).length === slot.querySelectorAll('[data-fpb-id]').length;
 }
 
-function markSelected(slot, selected) {
+function markSelected(slot, selected, t) {
   slot.querySelectorAll('.is-selected').forEach((node) => node.classList.remove('is-selected'));
   slot.querySelectorAll('.fpb-element-actions').forEach((actions) => actions.remove());
   slot.querySelectorAll('.fpb-delete, .fpb-column-add').forEach((button) => button.remove());
@@ -124,8 +124,8 @@ function markSelected(slot, selected) {
   const removeButton = slot.ownerDocument.createElement('button');
   removeButton.type = 'button';
   removeButton.className = 'fpb-delete';
-  removeButton.setAttribute('aria-label', 'Изтрий елемента');
-  removeButton.title = 'Изтрий елемента';
+  removeButton.setAttribute('aria-label', t('Delete element'));
+  removeButton.title = t('Delete element');
   const actions = slot.ownerDocument.createElement('div');
   actions.className = 'fpb-element-actions';
   const icon = slot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -150,8 +150,8 @@ function markSelected(slot, selected) {
     button.className = 'fpb-column-add ' + className;
     button.dataset.fpbColumnId = selected;
     button.dataset.fpbSide = side;
-    button.setAttribute('aria-label', side === 'left' ? 'Добави колона вляво' : 'Добави колона вдясно');
-    button.title = side === 'left' ? 'Добави колона вляво' : 'Добави колона вдясно';
+    button.setAttribute('aria-label', t(side === 'left' ? 'Add column to the left' : 'Add column to the right'));
+    button.title = t(side === 'left' ? 'Add column to the left' : 'Add column to the right');
     const svg = slot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
     svg.setAttribute('aria-hidden', 'true');
@@ -205,8 +205,10 @@ function replayEntrance(node) {
 export function createCanvas(host) {
   const {React, request} = host;
   const h = React.createElement;
+  const t = host.i18n.t;
 
   return function Canvas({frameHtml, markup, selected, motionPreview = '', onSelect, onInsert, onMove, onRemove, onText, onResizeColumns, onAddAdjacentColumn, dragKind, pageId = null}) {
+    const locale = host.i18n.useLocale();
     const frame = React.useRef(null);
     const select = React.useRef(onSelect);
     const insert = React.useRef(onInsert);
@@ -496,7 +498,8 @@ export function createCanvas(host) {
             style.id = 'fpb-canvas-style';
             doc.head.appendChild(style);
           }
-          if (style.textContent !== CANVAS_STYLE + SELECTION_STYLE) style.textContent = CANVAS_STYLE + SELECTION_STYLE;
+          const canvasStyle = CANVAS_STYLE.replace('content:"Скрита"', 'content:' + JSON.stringify(t('Hidden')));
+          if (style.textContent !== canvasStyle + SELECTION_STYLE) style.textContent = canvasStyle + SELECTION_STYLE;
           if (!doc.getElementById('fpb-patterns-css')) {
             const source = document.querySelector('link[rel="stylesheet"][href*="patterns.css"]');
             const link = doc.createElement('link');
@@ -528,7 +531,7 @@ export function createCanvas(host) {
           const editing = active && active.isConnected && slot.contains(active) && active.isContentEditable ? active : null;
           const editingId = editing?.closest('[data-fpb-id]')?.getAttribute('data-fpb-id') || '';
           if (editing && sameIds(markup, slot)) {
-            markSelected(slot, selectedRef.current);
+            markSelected(slot, selectedRef.current, t);
             previewShortcodes(slot);
             return;
           }
@@ -536,7 +539,7 @@ export function createCanvas(host) {
           const editingIndex = editing ? editables.indexOf(editing) : -1;
           const offset = editing ? caretOffset(editing) : 0;
           slot.innerHTML = markup;
-          markSelected(slot, selectedRef.current);
+          markSelected(slot, selectedRef.current, t);
           previewShortcodes(slot);
           if (editingId) {
             const next = [...(slot.querySelector('[data-fpb-id="' + CSS.escape(editingId) + '"]')?.querySelectorAll('[contenteditable]') || [])];
@@ -554,7 +557,7 @@ export function createCanvas(host) {
       node.addEventListener('load', paint);
       paint();
       return () => node.removeEventListener('load', paint);
-    }, [markup, frameHtml, pageId]);
+    }, [markup, frameHtml, pageId, locale]);
 
     React.useEffect(() => {
       if (!motionPreview) {
@@ -574,6 +577,6 @@ export function createCanvas(host) {
       requestAnimationFrame(run);
     }, [motionPreview, selected]);
 
-    return h('iframe', {ref: frame, className: 'fpb-frame', title: 'Преглед на страницата'});
+    return h('iframe', {ref: frame, className: 'fpb-frame', title: t('Page preview')});
   };
 }

@@ -1,8 +1,8 @@
 {
   "id": "flex/page-builder",
   "name": "Flex Page Builder",
-  "version": "0.0.2",
-  "description": "Визуален редактор на съдържанието на страница, с преизползваеми headers и footers.",
+  "version": "0.0.3",
+  "description": "A visual page editor with reusable headers and footers.",
   "minimum_platform_version": "0.1.68",
   "entrypoint": "Flex\\PageBuilder\\PageBuilderPlugin",
   "autoload": {

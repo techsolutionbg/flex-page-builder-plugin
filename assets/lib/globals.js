@@ -5,6 +5,7 @@ export function createGlobalsPanel(host) {
   const {React} = host;
   const C = host.components;
   const h = React.createElement;
+  const t = host.i18n.t;
   const Inspector = createInspector(host);
 
   return function GlobalsPanel({
@@ -26,20 +27,20 @@ export function createGlobalsPanel(host) {
 
     if (editingStyle) {
       const current = {type: 'button', ...editingStyle};
-      const styleName = editingStyle.name || 'Дизайн';
+      const styleName = editingStyle.name || t('Design');
       return h('div', {className: 'fpb-globals'},
-        h('nav', {className: 'fpb-panel-crumbs', 'aria-label': 'Навигация в глобалните'},
-          h('button', {type: 'button', onClick: () => onSelectType(null)}, 'Глобални'),
+        h('nav', {className: 'fpb-panel-crumbs', 'aria-label': t('Global styles navigation')},
+          h('button', {type: 'button', onClick: () => onSelectType(null)}, t('Global styles')),
           h('span', {'aria-hidden': true}, '/'),
           h('button', {type: 'button', onClick: () => { onSelectType('button'); onSelectStyle(null); }}, 'Button'),
           h('span', {'aria-hidden': true}, '/'),
-          h('button', {type: 'button', onClick: () => onSelectStyle(null)}, 'Дизайни'),
+          h('button', {type: 'button', onClick: () => onSelectStyle(null)}, t('Styles')),
           h('span', {'aria-hidden': true}, '/'),
           h('span', {className: 'fpb-panel-crumb-current', 'aria-current': 'page'}, styleName)),
         h('p', {className: 'fpb-globals-title'}, styleName),
         h('div', {className: 'fpb-style-name'},
           h('label', null,
-            h('span', null, 'Име'),
+            h('span', null, t('Name')),
             h(C.Input, {
               value: editingStyle.name || '',
               onChange: (event) => {
@@ -55,7 +56,7 @@ export function createGlobalsPanel(host) {
           onChange: (next) => {
             const {type, name, id, button_style_id, text, url, link_type, page_id, ...style} = next;
             onChangeStyles(styles.map((item) => (item.id === editingStyle.id
-              ? {id: editingStyle.id, name: editingStyle.name || 'Дизайн', ...style}
+              ? {id: editingStyle.id, name: editingStyle.name || t('Design'), ...style}
               : item)));
           },
         }));
@@ -63,13 +64,13 @@ export function createGlobalsPanel(host) {
 
     if (!selectedType) {
       return h('div', {className: 'fpb-globals'},
-        h('p', {className: 'fpb-globals-note'}, 'Тези стойности важат за всички страници. Настройките на конкретния елемент ги презаписват.'),
+        h('p', {className: 'fpb-globals-note'}, t('These values apply across all pages. Element settings override them.')),
         h('div', {className: 'fpb-palette-list'}, PALETTE_GROUPS.map((group, index) => h('section', {
           key: group.id,
           className: 'fpb-palette-group',
         },
         index > 0 ? h('hr', {className: 'fpb-palette-rule'}) : null,
-        h('h2', null, group.label),
+        h('h2', null, t(group.label)),
         h('div', {className: 'fpb-palette-items'}, group.items.map((item) => h('button', {
           key: item.type,
           type: 'button',
@@ -78,45 +79,45 @@ export function createGlobalsPanel(host) {
             ? 'has-defaults'
             : '',
           onClick: () => onSelectType(item.type),
-        }, item.label)))))));
+        }, t(item.label))))))));
     }
 
     const current = {type: selectedType, ...(defaults[selectedType] || {})};
-    const typeLabel = PALETTE.find((item) => item.type === selectedType)?.label || selectedType;
+    const typeLabel = t(PALETTE.find((item) => item.type === selectedType)?.label || selectedType);
     return h('div', {className: 'fpb-globals'},
-      h('nav', {className: 'fpb-panel-crumbs', 'aria-label': 'Навигация в глобалните'},
-        h('button', {type: 'button', onClick: () => onSelectType(null)}, 'Глобални'),
+      h('nav', {className: 'fpb-panel-crumbs', 'aria-label': t('Global styles navigation')},
+        h('button', {type: 'button', onClick: () => onSelectType(null)}, t('Global styles')),
         h('span', {'aria-hidden': true}, '/'),
         h('span', {className: 'fpb-panel-crumb-current', 'aria-current': 'page'}, typeLabel)),
-      h('p', {className: 'fpb-globals-note'}, 'Тези стойности важат за всички страници. Настройките на конкретния елемент ги презаписват.'),
+      h('p', {className: 'fpb-globals-note'}, t('These values apply across all pages. Element settings override them.')),
       h('p', {className: 'fpb-globals-title'}, typeLabel),
       selectedType === 'button' ? h('div', {className: 'fpb-button-styles'},
         h('div', {className: 'fpb-button-styles-head'},
-          h('p', {className: 'fpb-box-title'}, 'Дизайни'),
+          h('p', {className: 'fpb-box-title'}, t('Styles')),
           h(C.Button, {
             type: 'button',
             variant: 'secondary',
             onClick: () => {
               const id = buttonStyleId();
-              onChangeStyles([...styles, {id, name: 'Нов дизайн'}]);
+              onChangeStyles([...styles, {id, name: t('New style')}]);
               onSelectStyle(id);
             },
-          }, 'Добави')),
+          }, t('Add style'))),
         styles.length
           ? h('ul', {className: 'fpb-button-styles-list'}, styles.map((item) => h('li', {key: item.id},
             h('button', {
               type: 'button',
               className: 'fpb-button-style-item',
               onClick: () => onSelectStyle(item.id),
-            }, item.name || 'Дизайн'),
+            }, item.name || t('Design')),
             h('button', {
               type: 'button',
               className: 'fpb-button-style-delete',
-              'aria-label': 'Изтрий дизайна',
+              'aria-label': t('Delete style'),
               onClick: () => onChangeStyles(styles.filter((style) => style.id !== item.id)),
             }, '×'))))
-          : h('p', {className: 'fpb-muted'}, 'Няма запазени дизайни.'),
-        h('p', {className: 'fpb-muted'}, 'По-долу са стойностите по подразбиране, когато бутонът няма избран дизайн.')) : null,
+          : h('p', {className: 'fpb-muted'}, t('No saved styles yet.')),
+        h('p', {className: 'fpb-muted'}, t('The settings below apply when a button has no style selected.'))) : null,
       h(Inspector, {
         mode: 'defaults',
         device,

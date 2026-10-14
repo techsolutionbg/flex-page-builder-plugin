@@ -80,6 +80,7 @@ final readonly class AdminController
         }
         $compiler = new HtmlCompiler();
         $loaded = (new SettingsStore())->load();
+        $capabilities = $this->themes->capabilities();
 
         return [
             'page' => [
@@ -93,6 +94,7 @@ final readonly class AdminController
             'headers' => $chrome->list('header'),
             'footers' => $chrome->list('footer'),
             'pages' => $this->links->options(),
+            'menus' => $this->menus->optionsForTheme($capabilities['theme'] ?? '', $this->repository->publicPageSet()),
             'elements' => $elements,
             'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
             'button_styles' => $compiler->normalizeButtonStyles($loaded['button_styles']),
@@ -110,10 +112,10 @@ final readonly class AdminController
     {
         $html = (string) $page->getAttribute('content');
         if (($body['force'] ?? false) !== true && ($body['base_hash'] ?? null) !== DocumentStore::hash($html)) {
-            throw new \InvalidArgumentException('Страницата е променена на друго място, след като я отворихте. Презаредете или запишете върху промените.', 409);
+            throw new \InvalidArgumentException('The page was changed elsewhere after you opened it. Reload the page or overwrite the changes.', 409);
         }
         if (!is_array($body['elements'] ?? null) || !array_is_list($body['elements'])) {
-            throw new \InvalidArgumentException('Невалидно съдържание.', 422);
+            throw new \InvalidArgumentException('Invalid content.', 422);
         }
         $compiler = new HtmlCompiler();
         $settings = new SettingsStore();

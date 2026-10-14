@@ -308,6 +308,11 @@ function motionClass(element) {
 
 function wrapperStyle(element, media) {
   const parts = [];
+  if (element.type === 'menu') {
+    parts.push('display:flex', 'width:100%', 'min-height:100%');
+    parts.push('justify-content:' + ({center: 'center', right: 'flex-end'}[element.menu_horizontal_align] || 'flex-start'));
+    parts.push('align-items:' + ({center: 'center', bottom: 'flex-end'}[element.menu_vertical_align] || 'flex-start'));
+  }
   const family = fontFamily(element.font_family);
   if (family) parts.push('font-family:' + family);
   if (Number.isInteger(element.text_width)) parts.push('width:min(100%,' + Math.max(120, Math.min(1600, element.text_width)) + 'px)');
@@ -342,8 +347,8 @@ function editableText(text, multiline) {
   return multiline ? escaped.replace(/\n/g, '<br>') : escaped;
 }
 
-function dragHandle() {
-  return '<button type="button" class="fpb-drag" draggable="true" aria-label="Премести"></button>';
+function dragHandle(t) {
+  return '<button type="button" class="fpb-drag" draggable="true" aria-label="' + escapeHtml(t('Move element')) + '"></button>';
 }
 
 function hiddenClass(element) {
@@ -481,13 +486,47 @@ function hoverRules(element) {
     + sel + ':hover{' + parts.join(';') + '}';
 }
 
+function menuHoverRules(element) {
+  if (element?.type !== 'menu' || !element?.id) return '';
+  const selector = '[data-fpb-id="' + escapeHtml(element.id) + '"] .theme-menu a';
+  const parts = [];
+  [
+    ['menu_hover_color', 'color'],
+    ['menu_hover_background', 'background-color'],
+    ['menu_hover_border_color', 'border-color'],
+    ['menu_hover_decoration_color', 'text-decoration-color'],
+  ].forEach(([key, property]) => {
+    const value = colorValue(element[key]);
+    if (value) parts.push(property + ':' + value);
+  });
+  if (['none', 'underline', 'overline', 'line-through'].includes(element.menu_hover_decoration)) {
+    parts.push('text-decoration:' + element.menu_hover_decoration);
+  }
+  const thickness = pxValue(element.menu_hover_decoration_thickness, 8);
+  if (thickness !== null) parts.push('text-decoration-thickness:' + Math.max(1, thickness) + 'px');
+  const radius = pxValue(element.menu_hover_radius, 32);
+  if (radius !== null) parts.push('border-radius:' + radius + 'px');
+  if (element.menu_hover_transform === 'lift') parts.push('transform:translateY(-2px)');
+  if (element.menu_hover_transform === 'grow') parts.push('transform:scale(1.04)');
+  if (!parts.length) return '';
+  const duration = pxValue(element.menu_hover_duration, 1000) ?? 200;
+  const base = ['lift', 'grow'].includes(element.menu_hover_transform) ? 'display:inline-block;' : '';
+  const transition = selector + '{' + base + 'transition:color ' + duration + 'ms ease,background-color ' + duration + 'ms ease,border-color ' + duration + 'ms ease,border-radius ' + duration + 'ms ease,text-decoration-color ' + duration + 'ms ease,transform ' + duration + 'ms ease}';
+  const interactive = selector + ':hover,' + selector + ':focus-visible';
+  const reducedMotion = '@media (prefers-reduced-motion: reduce){' + selector + '{transition:none}'
+    + (['lift', 'grow'].includes(element.menu_hover_transform) ? interactive + '{transform:none}' : '') + '}';
+  return transition + interactive + '{' + parts.join(';') + '}' + reducedMotion;
+}
+
 function collectDocumentCss(elements, hover, tablet, phone) {
   (elements || []).forEach((element) => {
     const h = hoverRules(element);
+    const mh = menuHoverRules(element);
     const list = listStyleRules(element);
     const t = overrideRules(element, element.tablet);
     const p = overrideRules(element, element.phone);
     if (h) hover.push(h);
+    if (mh) hover.push(mh);
     if (list) hover.push(list);
     if (t) tablet.push(t);
     if (p) phone.push(p);
@@ -529,7 +568,35 @@ function buttonHref(element, pages) {
   return '#';
 }
 
-function leafHtml(element, selected, media, pages) {
+function menuItemsHtml(items) {
+  return (Array.isArray(items) ? items : []).map((item) => {
+    const label = escapeHtml(item?.label || '');
+    const url = escapeHtml(item?.url || '#');
+    const target = item?.new_tab ? ' target="_blank" rel="noopener noreferrer"' : '';
+    const children = Array.isArray(item?.children) && item.children.length
+      ? '<ul class="theme-menu">' + menuItemsHtml(item.children) + '</ul>'
+      : '';
+    return '<li><a href="' + url + '"' + target + '>' + label + '</a>' + children + '</li>';
+  }).join('');
+}
+
+function menuPreview(element, menus, t) {
+  const menu = (Array.isArray(menus) ? menus : []).find((item) => item?.slug === element.menu_slug);
+  const horizontal = element.menu_layout === 'horizontal';
+  const baseStyle = textStyle(element).replace(/^ style="/, '').replace(/"$/, '');
+  const layout = horizontal
+    ? 'display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:1rem;list-style:none;margin:0;padding:0;width:max-content;max-width:100%'
+    : 'display:flex;flex-direction:column;gap:.5rem;list-style:none;margin:0;padding:0;width:max-content;max-width:100%';
+  const style = [layout, baseStyle].filter(Boolean).join(';');
+  const layoutStyle = style ? ' style="' + style + '"' : '';
+  if (!menu) return '<p class="fpb-empty">' + escapeHtml(t('Select a menu from the active theme.')) + '</p>';
+  if (!Array.isArray(menu.items) || menu.items.length === 0) {
+    return '<p class="fpb-empty">' + escapeHtml(menu.name || t('Menu')) + ': ' + escapeHtml(t('No menu items.')) + '</p>';
+  }
+  return '<ul class="theme-menu fpb-menu-preview"' + layoutStyle + '>' + menuItemsHtml(menu.items) + '</ul>';
+}
+
+function leafHtml(element, selected, media, pages, menus, t) {
   const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element);
   let inner = '';
   if (element.type === 'heading') {
@@ -543,10 +610,10 @@ function leafHtml(element, selected, media, pages) {
       const variant = element.site_logo_variant === 'dark' ? 'dark' : 'light';
       const url = logos[variant] || logos[variant === 'dark' ? 'light' : 'dark'] || '';
       const image = url ? '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '">' : '';
-      inner = image ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '>' + image + '</span>' : '<p class="fpb-empty">Няма зададено лого в настройките на темата</p>';
+      inner = image ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '>' + image + '</span>' : '<p class="fpb-empty">' + escapeHtml(t('No logo is set in Theme Settings.')) + '</p>';
     } else {
       const url = media[element.media_id] || '';
-      inner = url ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '"></span>' : '<p class="fpb-empty">Изберете изображение</p>';
+      inner = url ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '"></span>' : '<p class="fpb-empty">' + escapeHtml(t('Choose an image')) + '</p>';
     }
   } else if (element.type === 'button') {
     inner = '<a class="fpb-button" href="' + escapeHtml(buttonHref(element, pages)) + '"' + textStyle(element) + ' contenteditable="plaintext-only">' + editableText(element.text, false) + '</a>';
@@ -559,47 +626,49 @@ function leafHtml(element, selected, media, pages) {
     inner = String(element.html || '');
   } else if (element.type === 'shortcode') {
     const shortcode = String(element.shortcode || '');
-    inner = '<div class="fpb-shortcode-preview" data-fpb-shortcode="' + escapeHtml(shortcode) + '">' + (shortcode ? escapeHtml(shortcode) : '<span class="fpb-muted">Въведете кратък код</span>') + '</div>';
+    inner = '<div class="fpb-shortcode-preview" data-fpb-shortcode="' + escapeHtml(shortcode) + '">' + (shortcode ? escapeHtml(shortcode) : '<span class="fpb-muted">' + escapeHtml(t('Enter a shortcode')) + '</span>') + '</div>';
+  } else if (element.type === 'menu') {
+    inner = menuPreview(element, menus, t);
   } else {
     inner = '<hr>';
   }
-  return '<div class="fpb-element' + selectedClass + motionClass(element) + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="' + element.type + '"' + wrapperStyle(element, media) + '>' + dragHandle() + inner + '</div>';
+  return '<div class="fpb-element' + selectedClass + motionClass(element) + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="' + element.type + '"' + wrapperStyle(element, media) + '>' + dragHandle(t) + inner + '</div>';
 }
 
-function sectionHtml(element, selected, media, pages, nested) {
+function sectionHtml(element, selected, media, pages, menus, t) {
   const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element) + motionClass(element);
-  const wideClass = element.full_width ? ' fpb-section--full' : (nested ? ' fpb-section--boxed' : '');
+  const wideClass = element.full_width ? ' fpb-section--full' : ' fpb-section--boxed';
   const children = element.children || [];
   const body = children.length
-    ? children.map((child) => child.type === 'section' ? sectionHtml(child, selected, media, pages, true) : child.type === 'columns' ? columnsHtml(child, selected, media, pages) : leafHtml(child, selected, media, pages)).join('')
-    : '<p class="fpb-empty">Пуснете елемент в секцията</p>';
-  return '<div class="fpb-section' + selectedClass + wideClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="section"' + wrapperStyle(element, media) + '>' + dragHandle() + wallpaperLayer(element, media) + overlayLayer(element) + particlesLayer(element) + '<div class="fpb-section-body">' + body + '</div></div>';
+    ? children.map((child) => child.type === 'section' ? sectionHtml(child, selected, media, pages, menus, t) : child.type === 'columns' ? columnsHtml(child, selected, media, pages, menus, t) : leafHtml(child, selected, media, pages, menus, t)).join('')
+    : '<p class="fpb-empty">' + escapeHtml(t('Drop an element into the section.')) + '</p>';
+  return '<div class="fpb-section' + selectedClass + wideClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="section"' + wrapperStyle(element, media) + '>' + dragHandle(t) + wallpaperLayer(element, media) + overlayLayer(element) + particlesLayer(element) + '<div class="fpb-section-body">' + body + '</div></div>';
 }
 
-function columnsHtml(element, selected, media, pages) {
+function columnsHtml(element, selected, media, pages, menus, t) {
   const selectedClass = (element.id === selected ? ' is-selected' : '') + hiddenClass(element) + motionClass(element);
   const cols = element.children || [];
   const cells = cols.map((column) => {
     const body = (column.children || []).length
-      ? column.children.map((child) => leafHtml(child, selected, media, pages)).join('')
-      : '<p class="fpb-empty">Пуснете елемент</p>';
+      ? column.children.map((child) => leafHtml(child, selected, media, pages, menus, t)).join('')
+      : '<p class="fpb-empty">' + escapeHtml(t('Drop an element here.')) + '</p>';
     const index = cols.indexOf(column);
     const resizeHandle = index < cols.length - 1
-      ? '<button class="fpb-column-resize" type="button" data-fpb-columns-id="' + escapeHtml(element.id) + '" data-fpb-boundary="' + index + '" aria-label="Промени ширината на колоните" title="Плъзнете, за да промените ширината на колоните"></button>'
+      ? '<button class="fpb-column-resize" type="button" data-fpb-columns-id="' + escapeHtml(element.id) + '" data-fpb-boundary="' + index + '" aria-label="' + escapeHtml(t('Resize columns')) + '" title="' + escapeHtml(t('Drag to resize columns')) + '"></button>'
       : '';
-    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + hiddenClass(column) + motionClass(column) + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle() + '<div class="fpb-column-body">' + body + '</div>' + resizeHandle + '</div>';
+    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + hiddenClass(column) + motionClass(column) + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle(t) + '<div class="fpb-column-body">' + body + '</div>' + resizeHandle + '</div>';
   }).join('');
-  return '<div class="fpb-columns' + selectedClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="columns"' + wrapperStyle(element, media) + '>' + dragHandle() + cells + '</div>';
+  return '<div class="fpb-columns' + selectedClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="columns"' + wrapperStyle(element, media) + '>' + dragHandle(t) + cells + '</div>';
 }
 
-export function compile(elements, selected, media, defaults, pages, buttonStyles) {
+export function compile(elements, selected, media, defaults, pages, buttonStyles, menus = [], t = (source) => source) {
   const tree = applyDefaults(elements, defaults, buttonStyles);
   if (!tree.length) {
-    return '<p class="fpb-empty">Добавете секция или пуснете елемент тук.</p>';
+    return '<p class="fpb-empty">' + escapeHtml(t('Add a section or drop an element here.')) + '</p>';
   }
   return tree.map((element) => {
-    if (element.type === 'section') return sectionHtml(element, selected, media, pages);
-    if (element.type === 'columns') return columnsHtml(element, selected, media, pages);
-    return leafHtml(element, selected, media, pages);
+    if (element.type === 'section') return sectionHtml(element, selected, media, pages, menus, t);
+    if (element.type === 'columns') return columnsHtml(element, selected, media, pages, menus, t);
+    return leafHtml(element, selected, media, pages, menus, t);
   }).join('') + documentStyle(tree);
 }

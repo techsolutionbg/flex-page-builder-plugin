@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Flex\PageBuilder;
 
 use Flex\Extension\V1\{BootablePluginInterface, EventNames, ExtensionEventInterface, PageEvent, PluginContext, PluginInterface, UninstallablePluginInterface, UpdatablePluginInterface};
+use Flex\Menus\PublicMenuApi;
 use Flex\Pages\Page;
 
 final class PageBuilderPlugin implements PluginInterface, BootablePluginInterface, UpdatablePluginInterface, UninstallablePluginInterface
@@ -82,12 +83,34 @@ final class PageBuilderPlugin implements PluginInterface, BootablePluginInterfac
             'order' => 30,
         ]);
 
-        $context->api->addFilter('theme.render.data', static function (mixed $data): mixed {
+        $context->api->addFilter('theme.render.data', static function (mixed $data, array $filterContext = []): mixed {
             if (!is_array($data)) {
                 return $data;
             }
 
-            return (new ThemeChrome())->inject($data);
+            $data = (new ThemeChrome())->inject($data);
+            $menus = $filterContext['menu_api'] ?? null;
+            if (!$menus instanceof PublicMenuApi) {
+                return $data;
+            }
+
+            $page = $data['page'] ?? null;
+            if ($page instanceof Page) {
+                $content = (string) $page->getAttribute('content');
+                $rendered = self::renderMenuPlaceholders($content, $menus);
+                if ($rendered !== $content) {
+                    $page = clone $page;
+                    $page->setAttribute('content', $rendered);
+                    $data['page'] = $page;
+                }
+            }
+            foreach (['flex_builder_header', 'flex_builder_footer'] as $key) {
+                if (is_string($data[$key] ?? null)) {
+                    $data[$key] = self::renderMenuPlaceholders($data[$key], $menus);
+                }
+            }
+
+            return $data;
         });
 
         $context->api->listen(EventNames::PAGE_DELETED, static function (ExtensionEventInterface $event): void {
@@ -113,5 +136,33 @@ final class PageBuilderPlugin implements PluginInterface, BootablePluginInterfac
             $page->setAttribute('settings', $settings);
             $page->saveOrFail();
         }
+    }
+
+    private static function renderMenuPlaceholders(string $html, PublicMenuApi $menus): string
+    {
+        return preg_replace_callback(
+            '#(<div class="fpb-theme-menu-placeholder" data-fpb-menu-slug="([a-z0-9]+(?:-[a-z0-9]+)*)"(?: data-fpb-menu-layout="(horizontal|vertical)")?(?: style="[^"]*")?>)(</div>)#',
+            static function (array $match) use ($menus): string {
+                $menuHtml = $menus->html($match[2]);
+                if (($match[3] ?? 'vertical') === 'horizontal' && $menuHtml !== '') {
+                    $menuHtml = preg_replace(
+                        '/^<ul class="theme-menu">/',
+                        '<ul class="theme-menu" style="display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:1rem;list-style:none;margin:0;padding:0;width:max-content;max-width:100%">',
+                        $menuHtml,
+                        1,
+                    ) ?? $menuHtml;
+                } elseif ($menuHtml !== '') {
+                    $menuHtml = preg_replace(
+                        '/^<ul class="theme-menu">/',
+                        '<ul class="theme-menu" style="display:flex;flex-direction:column;gap:.5rem;list-style:none;margin:0;padding:0;width:max-content;max-width:100%">',
+                        $menuHtml,
+                        1,
+                    ) ?? $menuHtml;
+                }
+
+                return $match[1] . $menuHtml . $match[4];
+            },
+            $html,
+        ) ?? $html;
     }
 }

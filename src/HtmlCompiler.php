@@ -7,7 +7,7 @@ namespace Flex\PageBuilder;
 /** Turns the builder document into the HTML stored on the page. */
 final class HtmlCompiler
 {
-    public const TYPES = ['section', 'columns', 'column', 'heading', 'paragraph', 'image', 'button', 'list', 'divider', 'spacer', 'html', 'shortcode'];
+    public const TYPES = ['section', 'columns', 'column', 'heading', 'paragraph', 'image', 'button', 'list', 'menu', 'divider', 'spacer', 'html', 'shortcode'];
 
     public const STYLE_KEYS = [
         'size', 'line_height', 'weight', 'font_family', 'align', 'text_width', 'vertical_align', 'level', 'height', 'full_width', 'hidden', 'column_widths',
@@ -19,6 +19,9 @@ final class HtmlCompiler
         'text_decoration', 'decoration_style', 'decoration_color', 'decoration_thickness',
         'marker_style', 'marker_color', 'list_spacing',
         'hover_background', 'hover_color', 'hover_border_color',
+        'menu_hover_color', 'menu_hover_background', 'menu_hover_border_color',
+        'menu_hover_decoration', 'menu_hover_decoration_color', 'menu_hover_decoration_thickness',
+        'menu_hover_transform', 'menu_hover_duration', 'menu_hover_radius',
         'animation', 'animation_duration', 'animation_delay', 'hover_animation',
         'color', 'border_width', 'border_color', 'radius', 'padding',
         'padding_top', 'padding_right', 'padding_bottom', 'padding_left',
@@ -44,7 +47,7 @@ final class HtmlCompiler
         $html = '';
         $tree = $this->withDefaults($this->normalize($elements), $defaults, $buttonStyles);
         foreach ($tree as $element) {
-            $html .= $this->element($element, $mediaUrl, false, $pageUrl, $siteLogos);
+            $html .= $this->element($element, $mediaUrl, $pageUrl, $siteLogos);
         }
         if ($html === '') {
             return '';
@@ -70,7 +73,7 @@ final class HtmlCompiler
             }
             $raw = $defaults[$type];
             $style = self::appearance($raw) + self::motion($raw);
-            if (in_array($type, ['heading', 'paragraph', 'button', 'list', 'html', 'shortcode'], true)) {
+            if (in_array($type, ['heading', 'paragraph', 'button', 'list', 'menu', 'html', 'shortcode'], true)) {
                 $style += self::typography($raw);
                 $style += self::textEffects($raw);
             }
@@ -79,6 +82,9 @@ final class HtmlCompiler
             }
             if ($type === 'button') {
                 $style += self::hover($raw);
+            }
+            if ($type === 'menu') {
+                $style += self::menuHover($raw);
             }
             if ($type === 'heading') {
                 $level = (int) ($raw['level'] ?? 0);
@@ -136,7 +142,7 @@ final class HtmlCompiler
             $seen[$id] = true;
             $name = trim(mb_substr((string) ($raw['name'] ?? ''), 0, 80));
             if ($name === '') {
-                $name = 'Дизайн';
+                $name = 'Design';
             }
             $style = $this->normalizeDefaults(['button' => $raw])['button'] ?? [];
             $out[] = ['id' => $id, 'name' => $name] + $style;
@@ -218,7 +224,7 @@ final class HtmlCompiler
     public function normalize(array $elements): array
     {
         if ($this->size($elements) > 200) {
-            throw new \InvalidArgumentException('Страницата може да има до 200 елемента.', 422);
+            throw new \InvalidArgumentException('A page can have up to 200 elements.', 422);
         }
 
         return $this->nodes($elements, 'root');
@@ -250,7 +256,7 @@ final class HtmlCompiler
         $normalized = [];
         foreach ($elements as $element) {
             if (!is_array($element) || !is_string($element['type'] ?? null) || !in_array($element['type'], self::TYPES, true)) {
-                throw new \InvalidArgumentException('Невалиден елемент.', 422);
+            throw new \InvalidArgumentException('Invalid element.', 422);
             }
             $id = is_string($element['id'] ?? null) && preg_match('/^[a-zA-Z0-9_-]{1,40}$/', $element['id']) === 1
                 ? $element['id']
@@ -258,7 +264,7 @@ final class HtmlCompiler
             $type = $element['type'];
             if ($type === 'section') {
                 if ($context !== 'root' && $context !== 'section') {
-                    throw new \InvalidArgumentException('Невалиден елемент.', 422);
+            throw new \InvalidArgumentException('Invalid element.', 422);
                 }
                 $children = is_array($element['children'] ?? null) ? $element['children'] : [];
                 $normalized[] = [
@@ -271,21 +277,21 @@ final class HtmlCompiler
             }
             if ($type === 'columns') {
                 if ($context === 'column') {
-                    throw new \InvalidArgumentException('Невалиден елемент.', 422);
+            throw new \InvalidArgumentException('Invalid element.', 422);
                 }
                 $normalized[] = $this->columns($id, $element);
                 continue;
             }
             if ($type === 'column') {
                 if ($context !== 'columns') {
-                    throw new \InvalidArgumentException('Невалиден елемент.', 422);
+            throw new \InvalidArgumentException('Invalid element.', 422);
                 }
                 $children = is_array($element['children'] ?? null) ? $element['children'] : [];
                 $normalized[] = ['id' => $id, 'type' => 'column', 'children' => $this->nodes($children, 'column')] + self::appearance($element) + self::motion($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'column');
                 continue;
             }
             if ($context === 'columns') {
-                throw new \InvalidArgumentException('Невалиден елемент.', 422);
+            throw new \InvalidArgumentException('Invalid element.', 422);
             }
             $normalized[] = ['id' => $id] + $this->props($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, $type);
         }
@@ -358,6 +364,17 @@ final class HtmlCompiler
 
             return ['type' => 'list', 'ordered' => ($element['ordered'] ?? false) === true, 'items' => $clean] + self::typography($element) + self::textEffects($element) + self::listStyle($element) + self::appearance($element) + self::motion($element);
         }
+        if ($type === 'menu') {
+            $slug = trim((string) ($element['menu_slug'] ?? ''));
+            if (strlen($slug) > 120 || ($slug !== '' && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $slug) !== 1)) {
+                $slug = '';
+            }
+            $layout = in_array($element['menu_layout'] ?? null, ['horizontal', 'vertical'], true) ? $element['menu_layout'] : 'vertical';
+            $horizontalAlign = in_array($element['menu_horizontal_align'] ?? null, ['left', 'center', 'right'], true) ? $element['menu_horizontal_align'] : 'left';
+            $verticalAlign = in_array($element['menu_vertical_align'] ?? null, ['top', 'center', 'bottom'], true) ? $element['menu_vertical_align'] : 'top';
+
+            return ['type' => 'menu', 'menu_slug' => $slug, 'menu_layout' => $layout, 'menu_horizontal_align' => $horizontalAlign, 'menu_vertical_align' => $verticalAlign] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::menuHover($element) + self::motion($element);
+        }
         if ($type === 'divider') {
             return ['type' => 'divider'] + self::appearance($element) + self::motion($element);
         }
@@ -369,7 +386,7 @@ final class HtmlCompiler
         if ($type === 'shortcode') {
             $shortcode = trim(mb_substr((string) ($element['shortcode'] ?? ''), 0, 1000));
             if ($shortcode !== '' && preg_match('/^(?:\[[a-zA-Z][a-zA-Z0-9_-]*(?:\s[^\[\]<>]*)?\]\s*)+$/D', $shortcode) !== 1) {
-                throw new \InvalidArgumentException('Въведете валиден кратък код.', 422);
+            throw new \InvalidArgumentException('Enter a valid shortcode.', 422);
             }
 
             return ['type' => 'shortcode', 'shortcode' => $shortcode] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
@@ -380,18 +397,18 @@ final class HtmlCompiler
 
     /** @param array<string, mixed> $element */
     /** @param callable(int): string|null $pageUrl */
-    private function element(array $element, callable $mediaUrl, bool $insideSection = false, ?callable $pageUrl = null, array $siteLogos = []): string
+    private function element(array $element, callable $mediaUrl, ?callable $pageUrl = null, array $siteLogos = []): string
     {
         $id = htmlspecialchars((string) $element['id'], ENT_QUOTES, 'UTF-8');
         if ($element['type'] === 'section' || $element['type'] === 'columns' || $element['type'] === 'column') {
             $children = '';
             foreach ($element['children'] as $child) {
-                $children .= $this->element($child, $mediaUrl, $element['type'] === 'section' || $insideSection, $pageUrl, $siteLogos);
+                $children .= $this->element($child, $mediaUrl, $pageUrl, $siteLogos);
             }
             $class = $element['type'] === 'section' ? 'fpb-section' : ($element['type'] === 'columns' ? 'fpb-columns' : 'fpb-column');
             if ($element['type'] === 'section' && ($element['full_width'] ?? false) === true) {
                 $class .= ' fpb-section--full';
-            } elseif ($element['type'] === 'section' && $insideSection) {
+            } elseif ($element['type'] === 'section') {
                 $class .= ' fpb-section--boxed';
             }
             if (($element['hidden'] ?? false) === true) {
@@ -410,6 +427,7 @@ final class HtmlCompiler
             'image' => $this->image($element, $mediaUrl, $siteLogos),
             'button' => '<a class="fpb-button" href="' . self::escape(self::buttonHref($element, $pageUrl)) . '"' . self::textStyle($element) . '>' . self::escape((string) $element['text']) . '</a>',
             'list' => $this->list($element),
+            'menu' => '<div class="fpb-theme-menu-placeholder" data-fpb-menu-slug="' . self::escape((string) ($element['menu_slug'] ?? '')) . '" data-fpb-menu-layout="' . (($element['menu_layout'] ?? 'vertical') === 'horizontal' ? 'horizontal' : 'vertical') . '"' . self::textStyle($element) . '></div>',
             'divider' => '<hr>',
             'spacer' => '<div class="fpb-spacer" style="height:' . (is_int($element['height'] ?? null) ? $element['height'] : 32) . 'px"></div>',
             // A shortcode is text at this point, but quotes and ampersands are part of its syntax.
@@ -773,6 +791,29 @@ final class HtmlCompiler
         ];
     }
 
+    /** @param array<string, mixed> $element @return array<string, mixed> */
+    private static function menuHover(array $element): array
+    {
+        $decoration = in_array($element['menu_hover_decoration'] ?? null, ['none', 'underline', 'overline', 'line-through'], true)
+            ? $element['menu_hover_decoration']
+            : null;
+        $transform = in_array($element['menu_hover_transform'] ?? null, ['none', 'lift', 'grow'], true)
+            ? $element['menu_hover_transform']
+            : null;
+
+        return [
+            'menu_hover_color' => self::color($element['menu_hover_color'] ?? null),
+            'menu_hover_background' => self::color($element['menu_hover_background'] ?? null),
+            'menu_hover_border_color' => self::color($element['menu_hover_border_color'] ?? null),
+            'menu_hover_decoration' => $decoration,
+            'menu_hover_decoration_color' => self::color($element['menu_hover_decoration_color'] ?? null),
+            'menu_hover_decoration_thickness' => self::px($element['menu_hover_decoration_thickness'] ?? null, 8),
+            'menu_hover_transform' => $transform,
+            'menu_hover_duration' => self::px($element['menu_hover_duration'] ?? null, 1000),
+            'menu_hover_radius' => self::px($element['menu_hover_radius'] ?? null, 32),
+        ];
+    }
+
     /** @param array<string, mixed> $element */
     private static function listStyleRules(string $id, array $element): string
     {
@@ -814,6 +855,53 @@ final class HtmlCompiler
 
         return $sel . '{transition:background-color .2s ease,color .2s ease,border-color .2s ease}'
             . $sel . ':hover{' . implode(';', $parts) . '}';
+    }
+
+    private static function menuHoverRules(string $id, array $element): string
+    {
+        if (($element['type'] ?? '') !== 'menu') {
+            return '';
+        }
+        $selector = '[data-fpb-id="' . htmlspecialchars($id, ENT_QUOTES, 'UTF-8') . '"] .theme-menu a';
+        $parts = [];
+        foreach ([
+            'menu_hover_color' => 'color',
+            'menu_hover_background' => 'background-color',
+            'menu_hover_border_color' => 'border-color',
+            'menu_hover_decoration_color' => 'text-decoration-color',
+        ] as $key => $property) {
+            $value = self::color($element[$key] ?? null);
+            if ($value !== null) {
+                $parts[] = $property . ':' . $value;
+            }
+        }
+        $decoration = $element['menu_hover_decoration'] ?? null;
+        if (in_array($decoration, ['none', 'underline', 'overline', 'line-through'], true)) {
+            $parts[] = 'text-decoration:' . $decoration;
+        }
+        $thickness = self::px($element['menu_hover_decoration_thickness'] ?? null, 8);
+        if ($thickness !== null) {
+            $parts[] = 'text-decoration-thickness:' . max(1, $thickness) . 'px';
+        }
+        $radius = self::px($element['menu_hover_radius'] ?? null, 32);
+        if ($radius !== null) {
+            $parts[] = 'border-radius:' . $radius . 'px';
+        }
+        $transform = $element['menu_hover_transform'] ?? null;
+        if (in_array($transform, ['lift', 'grow'], true)) {
+            $parts[] = 'transform:' . ($transform === 'lift' ? 'translateY(-2px)' : 'scale(1.04)');
+        }
+        if ($parts === []) {
+            return '';
+        }
+        $duration = self::px($element['menu_hover_duration'] ?? null, 1000) ?? 200;
+        $base = in_array($transform, ['lift', 'grow'], true) ? 'display:inline-block;' : '';
+        $transition = $selector . '{' . $base . 'transition:color ' . $duration . 'ms ease,background-color ' . $duration . 'ms ease,border-color ' . $duration . 'ms ease,border-radius ' . $duration . 'ms ease,text-decoration-color ' . $duration . 'ms ease,transform ' . $duration . 'ms ease}';
+        $interactive = $selector . ':hover,' . $selector . ':focus-visible';
+        $reducedMotion = '@media (prefers-reduced-motion: reduce){' . $selector . '{transition:none}'
+            . (in_array($transform, ['lift', 'grow'], true) ? $interactive . '{transform:none}' : '') . '}';
+
+        return $transition . $interactive . '{' . implode(';', $parts) . '}' . $reducedMotion;
     }
 
     /**
@@ -906,6 +994,17 @@ final class HtmlCompiler
     private static function wrapperStyle(array $element, ?int $columns = null): string
     {
         $parts = [];
+        if (($element['type'] ?? '') === 'menu') {
+            $parts[] = 'display:flex';
+            $parts[] = 'width:100%';
+            $parts[] = 'min-height:100%';
+            $parts[] = 'justify-content:' . match ($element['menu_horizontal_align'] ?? 'left') {
+                'center' => 'center', 'right' => 'flex-end', default => 'flex-start',
+            };
+            $parts[] = 'align-items:' . match ($element['menu_vertical_align'] ?? 'top') {
+                'center' => 'center', 'bottom' => 'flex-end', default => 'flex-start',
+            };
+        }
         $family = self::fontFamilyCss($element['font_family'] ?? null);
         if ($family !== null) {
             $parts[] = 'font-family:' . $family;
@@ -1459,7 +1558,7 @@ final class HtmlCompiler
         foreach (['tablet', 'phone'] as $device) {
             $raw = is_array($element[$device] ?? null) ? $element[$device] : [];
             $style = self::appearance($raw) + self::motion($raw);
-            if (in_array($type, ['heading', 'paragraph', 'button', 'list', 'html', 'shortcode'], true)) {
+            if (in_array($type, ['heading', 'paragraph', 'button', 'list', 'menu', 'html', 'shortcode'], true)) {
                 $style += self::typography($raw);
                 $style += self::textEffects($raw, true);
                 if (($raw['align'] ?? null) === 'left') {
@@ -1540,6 +1639,10 @@ final class HtmlCompiler
                 $hoverRule = self::hoverRules($id, $element);
                 if ($hoverRule !== '') {
                     $hover[] = $hoverRule;
+                }
+                $menuHoverRule = self::menuHoverRules($id, $element);
+                if ($menuHoverRule !== '') {
+                    $hover[] = $menuHoverRule;
                 }
                 $listRule = self::listStyleRules($id, $element);
                 if ($listRule !== '') {

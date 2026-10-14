@@ -43,7 +43,7 @@ final readonly class ChromeController
                 $body = $this->body($request);
                 $shortcode = trim((string) ($body['shortcode'] ?? ''));
                 if (mb_strlen($shortcode) > 1000 || preg_match('/^(?:\[[a-zA-Z][a-zA-Z0-9_-]*(?:\s[^\[\]<>]*)?\]\s*)+$/', $shortcode) !== 1) {
-                    throw new \InvalidArgumentException('Въведете валиден кратък код.', 422);
+                    throw new \InvalidArgumentException('Enter a valid shortcode.', 422);
                 }
                 $pageId = filter_var($body['page_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 $page = is_int($pageId) ? $this->pages->find($pageId) : null;
@@ -67,6 +67,7 @@ final readonly class ChromeController
                 $view = ($request->getQueryParams()['view'] ?? 'active') === 'trash' ? 'trash' : 'active';
                 $compiler = new HtmlCompiler();
                 $loaded = (new SettingsStore())->load();
+                $capabilities = $this->themes->capabilities();
 
                 return $this->json([
                     'headers' => $store->list('header'),
@@ -76,18 +77,19 @@ final readonly class ChromeController
                     'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
                     'button_styles' => $compiler->normalizeButtonStyles($loaded['button_styles']),
                     'site_logos' => SiteLogo::urls($this->media),
+                    'menus' => $this->menus->optionsForTheme($capabilities['theme'] ?? '', $this->pages->publicPageSet()),
                 ]);
             }
             if ($request->getMethod() === 'POST' && str_ends_with($path, '/restore')) {
                 if (!$store->restore($id)) {
-                    throw new \InvalidArgumentException('Записът не е намерен в кошчето.', 404);
+                    throw new \InvalidArgumentException('The record was not found in the trash.', 404);
                 }
 
                 return $this->json(['ok' => true]);
             }
             if ($request->getMethod() === 'DELETE' && str_ends_with($path, '/force')) {
                 if (!$store->forceDelete($id)) {
-                    throw new \InvalidArgumentException('Окончателно се изтрива само запис от кошчето.', 404);
+                    throw new \InvalidArgumentException('Only records in the trash can be permanently deleted.', 404);
                 }
 
                 return $this->json(['ok' => true]);
@@ -97,14 +99,14 @@ final readonly class ChromeController
             }
             if ($request->getMethod() === 'DELETE') {
                 if (!$store->trash($id)) {
-                    throw new \InvalidArgumentException('Записът не е намерен.', 404);
+                    throw new \InvalidArgumentException('The record was not found.', 404);
                 }
 
                 return $this->json(['ok' => true]);
             }
             $item = $store->get($id);
             if ($item === null) {
-                throw new \InvalidArgumentException('Header/Footer не е намерен.', 404);
+                throw new \InvalidArgumentException('The Header or Footer was not found.', 404);
             }
 
             return $this->json($item);
@@ -136,10 +138,10 @@ final readonly class ChromeController
     {
         $kind = is_string($body['kind'] ?? null) ? $body['kind'] : '';
         if (!in_array($kind, ChromeStore::KINDS, true)) {
-            throw new \InvalidArgumentException('Невалиден тип.', 422);
+            throw new \InvalidArgumentException('Invalid type.', 422);
         }
         if (!is_array($body['elements'] ?? null) || !array_is_list($body['elements'])) {
-            throw new \InvalidArgumentException('Невалидно съдържание.', 422);
+            throw new \InvalidArgumentException('Invalid content.', 422);
         }
         $name = is_string($body['name'] ?? null) ? $body['name'] : '';
         $compiler = new HtmlCompiler();
@@ -172,7 +174,7 @@ final readonly class ChromeController
     {
         $page = Page::query()->orderBy('id')->first();
         if (!$page instanceof Page) {
-            throw new \InvalidArgumentException('Няма страница за преглед на лейаута. Създайте поне една страница.', 422);
+            throw new \InvalidArgumentException('No page is available for the layout preview. Create at least one page.', 422);
         }
         $templates = $this->themes->pageTemplates();
         $ids = array_column($templates, 'id');

@@ -127,10 +127,10 @@ final class ChromeStore
     public function save(string $id, string $kind, string $name, array $elements, string $html): array
     {
         if (!$this->validId($id)) {
-            throw new \InvalidArgumentException('Невалиден идентификатор.', 422);
+            throw new \InvalidArgumentException('Invalid identifier.', 422);
         }
         if (!in_array($kind, self::KINDS, true)) {
-            throw new \InvalidArgumentException('Невалиден тип.', 422);
+            throw new \InvalidArgumentException('Invalid type.', 422);
         }
         $name = trim(mb_substr($name, 0, 80));
         if ($name === '') {
@@ -138,7 +138,7 @@ final class ChromeStore
         }
         $encoded = json_encode(['elements' => $elements], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         if (strlen($encoded) > self::MAX_BYTES) {
-            throw new \InvalidArgumentException('Документът е твърде голям.', 422);
+            throw new \InvalidArgumentException('The document is too large.', 422);
         }
         $hash = DocumentStore::hash($html);
         $values = [
@@ -151,7 +151,7 @@ final class ChromeStore
         ];
         $existing = $this->db->table('flex_page_builder_chrome')->where('id', $id)->first(['deleted_at']);
         if ($existing !== null && $existing->deleted_at !== null) {
-            throw new \InvalidArgumentException('Записът е в кошчето. Възстановете го преди редактиране.', 409);
+            throw new \InvalidArgumentException('This record is in the trash. Restore it before editing.', 409);
         }
         if ($existing !== null) {
             $this->db->table('flex_page_builder_chrome')->where('id', $id)->update($values);

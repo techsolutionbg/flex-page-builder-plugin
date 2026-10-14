@@ -4,6 +4,7 @@ export function createChromePanel(host) {
   const {React} = host;
   const C = host.components;
   const h = React.createElement;
+  const t = host.i18n.t;
 
   return function ChromePanel({
     headers = [],
@@ -20,7 +21,7 @@ export function createChromePanel(host) {
           type: 'button',
           variant: 'secondary',
           onClick: () => onCreate?.(kind),
-        }, 'Добави')),
+        }, t('Add'))),
       items.length
         ? h('ul', {className: 'fpb-button-styles-list'}, items.map((item) => h('li', {key: item.id},
           h('button', {
@@ -31,17 +32,17 @@ export function createChromePanel(host) {
           h('button', {
             type: 'button',
             className: 'fpb-button-style-delete',
-            'aria-label': 'Изтрий',
+            'aria-label': t('Delete'),
             onClick: () => onDelete?.(item),
           }, '×'))))
-        : h('p', {className: 'fpb-muted'}, 'Няма записани.'));
+        : h('p', {className: 'fpb-muted'}, t('Nothing saved yet.')));
 
     return h('div', {className: 'fpb-globals'},
-      h('p', {className: 'fpb-globals-note'}, 'Библиотеката е и в „Съдържание → Headers & Footers“. На страницата ги избирате от полетата Header / Footer (или от Настройки).'),
-      section('Headers', 'header', headers),
-      section('Footers', 'footer', footers),
+      h('p', {className: 'fpb-globals-note'}, t('Manage this library under “Content → Headers & Footers”. Choose a Header or Footer on the page or in its settings.')),
+      section(t('Headers'), 'header', headers),
+      section(t('Footers'), 'footer', footers),
       onRefresh ? h('div', {className: 'fpb-inspector-actions'},
-        h(C.Button, {type: 'button', variant: 'secondary', onClick: onRefresh}, 'Презареди списъка')) : null);
+        h(C.Button, {type: 'button', variant: 'secondary', onClick: onRefresh}, t('Refresh list'))) : null);
   };
 }
 

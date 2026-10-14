@@ -32,7 +32,7 @@
   pointer-events: none;
 }
 .fpb-section-particles > canvas { display: block; width: 100%; height: 100%; }
-.fpb-section > :not(.fpb-section-wallpaper):not(.fpb-section-overlay):not(.fpb-section-particles) { position: relative; z-index: 2; }
+.fpb-section > :not(.fpb-section-wallpaper):not(.fpb-section-overlay):not(.fpb-section-particles):not(.fpb-element-actions) { position: relative; z-index: 2; }
 .fpb-section > .fpb-element:first-child :where(h1, h2, h3, h4, h5, h6, p),
 .fpb-section-body > .fpb-element:first-child :where(h1, h2, h3, h4, h5, h6, p) { margin-block-start: 0; }
 .fpb-section > .fpb-element:last-child :where(h1, h2, h3, h4, h5, h6, p),
@@ -42,17 +42,12 @@
   max-width: 100vw;
   margin-inline: calc(50% - 50vw);
 }
-.fpb-section .fpb-section.fpb-section--full {
-  width: 100%;
-  max-width: none;
-  margin-inline: 0;
-}
+.fpb-section:not(.fpb-section--full),
 .fpb-section--boxed {
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--corp-max-width, 72rem);
+  max-width: var(--corp-max-width, var(--starter-container-width, 72rem));
   margin-inline: auto;
-  padding-inline: var(--corp-gutter, clamp(1rem, 4vw, 2rem));
 }
 body:has(.fpb-section--full) { overflow-x: clip; }
 .fpb-columns { display: grid; gap: 0; min-width: 0; }

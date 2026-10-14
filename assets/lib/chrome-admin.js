@@ -8,6 +8,7 @@ export function createPage(host) {
   const {React, request, toast} = host;
   const C = host.components;
   const h = React.createElement;
+  const t = host.i18n.t;
   const BuilderPage = createBuilderPage(host);
 
   function ChromeList({navigate}) {
@@ -33,7 +34,7 @@ export function createPage(host) {
       let live = true;
       setLoading(true);
       load(viewFilter)
-        .catch((error) => { if (live) setFailure(error.message); })
+        .catch((error) => { if (live) setFailure(t(error.message)); })
         .finally(() => { if (live) setLoading(false); });
       return () => { live = false; };
     }, [viewFilter]);
@@ -43,11 +44,11 @@ export function createPage(host) {
       setFailure('');
       try {
         await request(BASE + '/chrome/' + encodeURIComponent(item.id) + '/restore', 'POST', {});
-        toast?.success?.((KIND_LABEL[item.kind] || 'Записът') + ' е възстановен.');
+        toast?.success?.(t('{kind} restored.', {kind: t(KIND_LABEL[item.kind] || 'Record')}));
         await load('trash');
       } catch (error) {
-        setFailure(error.message);
-        toast?.error?.(error.message);
+        setFailure(t(error.message));
+        toast?.error?.(t(error.message));
       } finally {
         setBusy(false);
       }
@@ -60,11 +61,11 @@ export function createPage(host) {
       try {
         const suffix = confirm.action === 'force' ? '/force' : '';
         await request(BASE + '/chrome/' + encodeURIComponent(confirm.item.id) + suffix, 'DELETE');
-        toast?.success?.(confirm.action === 'force' ? 'Записът е изтрит завинаги.' : 'Записът е преместен в кошчето.');
+        toast?.success?.(t(confirm.action === 'force' ? 'Record permanently deleted.' : 'Record moved to the trash.'));
         await load(viewFilter);
       } catch (error) {
-        setFailure(error.message);
-        toast?.error?.(error.message);
+        setFailure(t(error.message));
+        toast?.error?.(t(error.message));
       } finally {
         setBusy(false);
         setConfirm(null);
@@ -76,31 +77,31 @@ export function createPage(host) {
       && (kindFilter === 'all' || item.kind === kindFilter));
 
     const columns = [
-      {key: 'name', label: 'Име', sortable: true, render: (row) => viewFilter === 'active'
-        ? h('button', {type: 'button', className: 'react-table-link', onClick: () => navigate(chromeEditPath(row.id)), 'aria-label': 'Отвори builder-а за ' + (row.name || KIND_LABEL[row.kind])}, row.name || '—')
+      {key: 'name', label: t('Name'), sortable: true, render: (row) => viewFilter === 'active'
+        ? h('button', {type: 'button', className: 'react-table-link', onClick: () => navigate(chromeEditPath(row.id)), 'aria-label': t('Open the builder for {name}', {name: row.name || t(KIND_LABEL[row.kind])})}, row.name || '—')
         : row.name || '—'},
-      {key: 'kind', label: 'Тип', sortable: true, render: (row) => KIND_LABEL[row.kind] || row.kind},
+      {key: 'kind', label: t('Type'), sortable: true, render: (row) => t(KIND_LABEL[row.kind] || row.kind)},
       {
         key: 'actions',
-        label: 'Действия',
+        label: t('Actions'),
         render: (row) => h(C.TableActionsMenu, null,
           viewFilter === 'active'
             ? h(React.Fragment, null,
-              h(C.DropdownOption, {disabled: busy, onClick: () => navigate(chromeEditPath(row.id))}, 'Редактирай'),
-              h(C.DropdownOption, {disabled: busy, onClick: () => setConfirm({action: 'trash', item: row})}, 'Премести в кошчето'))
+              h(C.DropdownOption, {disabled: busy, onClick: () => navigate(chromeEditPath(row.id))}, t('Edit')),
+              h(C.DropdownOption, {disabled: busy, onClick: () => setConfirm({action: 'trash', item: row})}, t('Move to trash')))
             : h(React.Fragment, null,
-              h(C.DropdownOption, {disabled: busy, onClick: () => restore(row)}, 'Възстанови'),
-              h(C.DropdownOption, {disabled: busy, onClick: () => setConfirm({action: 'force', item: row})}, 'Изтрий завинаги'))),
+              h(C.DropdownOption, {disabled: busy, onClick: () => restore(row)}, t('Restore')),
+              h(C.DropdownOption, {disabled: busy, onClick: () => setConfirm({action: 'force', item: row})}, t('Delete permanently')))),
       },
     ];
 
     return h(React.Fragment, null,
       h('div', {className: 'react-page-heading'},
         h('div', null,
-          h('h1', null, viewFilter === 'trash' ? 'Кошче' : 'Headers & Footers'),
-          h('p', {className: 'fpb-muted'}, viewFilter === 'trash' ? 'Възстановете записи или ги изтрийте завинаги.' : 'Създайте дизайн и го изберете от полетата Header / Footer на страницата.')),
+          h('h1', null, t(viewFilter === 'trash' ? 'Trash' : 'Headers & Footers')),
+          h('p', {className: 'fpb-muted'}, t(viewFilter === 'trash' ? 'Restore records or permanently delete them.' : 'Create a design and select it in the page Header or Footer settings.'))),
         h('div', {className: 'react-page-heading-actions'},
-          viewFilter === 'active' ? h(C.Button, {type: 'button', onClick: () => navigate(chromeCreatePath())}, 'Добави') : null)),
+          viewFilter === 'active' ? h(C.Button, {type: 'button', onClick: () => navigate(chromeCreatePath())}, t('Add')) : null)),
       failure ? h('div', {className: 'react-form-error', role: 'alert'}, failure) : null,
       h(C.DataTable, {
         columns,
@@ -109,47 +110,47 @@ export function createPage(host) {
         loading,
         filterStorageKey: 'page-builder-chrome',
         emptyMessage: failure
-          ? 'Headers & Footers не са заредени.'
+          ? t('Headers & Footers could not be loaded.')
           : search || kindFilter !== 'all'
-            ? 'Няма headers или footers, отговарящи на филтрите.'
-            : viewFilter === 'trash' ? 'Кошчето е празно.' : 'Няма записани headers или footers.',
+            ? t('No headers or footers match these filters.')
+            : viewFilter === 'trash' ? t('The trash is empty.') : t('No headers or footers have been created yet.'),
         toolbar: h(React.Fragment, null,
           h('label', {className: 'react-filter-field'},
-            h('span', null, 'Търсене'),
-            h('input', {value: search, placeholder: 'Име', onChange: (event) => setSearch(event.target.value)})),
+            h('span', null, t('Search')),
+            h('input', {value: search, placeholder: t('Name'), onChange: (event) => setSearch(event.target.value)})),
           h('label', {className: 'react-filter-field'},
-            h('span', null, 'Тип'),
+            h('span', null, t('Type')),
             h(C.DropdownMenu, {
-              ariaLabel: 'Тип Header или Footer',
+              ariaLabel: t('Filter by Header or Footer'),
               triggerClassName: 'react-filter-trigger',
               trigger: h(React.Fragment, null,
-                h('span', null, kindFilter === 'all' ? 'Всички' : KIND_LABEL[kindFilter]),
+                h('span', null, kindFilter === 'all' ? t('All') : t(KIND_LABEL[kindFilter])),
                 h(C.DropdownChevron)),
             },
-              h(C.DropdownOption, {selected: kindFilter === 'all', onClick: () => setKindFilter('all')}, 'Всички'),
-              h(C.DropdownOption, {selected: kindFilter === 'header', onClick: () => setKindFilter('header')}, 'Headers'),
-              h(C.DropdownOption, {selected: kindFilter === 'footer', onClick: () => setKindFilter('footer')}, 'Footers'))),
+              h(C.DropdownOption, {selected: kindFilter === 'all', onClick: () => setKindFilter('all')}, t('All')),
+              h(C.DropdownOption, {selected: kindFilter === 'header', onClick: () => setKindFilter('header')}, t('Headers')),
+              h(C.DropdownOption, {selected: kindFilter === 'footer', onClick: () => setKindFilter('footer')}, t('Footers')))),
           h('label', {className: 'react-filter-field'},
-            h('span', null, 'Изглед'),
+            h('span', null, t('View')),
             h(C.DropdownMenu, {
-              ariaLabel: 'Изглед на библиотеката',
+              ariaLabel: t('Library view'),
               triggerClassName: 'react-filter-trigger',
               trigger: h(React.Fragment, null,
-                h('span', null, viewFilter === 'trash' ? 'Кошче' : 'Активни'),
+                h('span', null, viewFilter === 'trash' ? t('Trash') : t('Active')),
                 h(C.DropdownChevron)),
             },
-              h(C.DropdownOption, {selected: viewFilter === 'active', onClick: () => setViewFilter('active')}, 'Активни'),
-              h(C.DropdownOption, {selected: viewFilter === 'trash', onClick: () => setViewFilter('trash')}, 'Кошче')))),
+              h(C.DropdownOption, {selected: viewFilter === 'active', onClick: () => setViewFilter('active')}, t('Active')),
+              h(C.DropdownOption, {selected: viewFilter === 'trash', onClick: () => setViewFilter('trash')}, t('Trash'))))),
       }),
       h(C.ConfirmDialog, {
         open: Boolean(confirm),
-        title: confirm?.action === 'force' ? 'Окончателно изтриване' : 'Преместване в кошчето',
+        title: t(confirm?.action === 'force' ? 'Delete permanently' : 'Move to trash'),
         message: confirm
           ? confirm.action === 'force'
-            ? '„' + (confirm.item.name || KIND_LABEL[confirm.item.kind]) + '“ ще бъде изтрит завинаги. Свързаните страници ще използват Header/Footer от темата.'
-            : '„' + (confirm.item.name || KIND_LABEL[confirm.item.kind]) + '“ ще бъде преместен в кошчето. Свързаните страници временно ще използват Header/Footer от темата.'
+            ? t('“{name}” will be permanently deleted. Linked pages will use the theme Header and Footer.', {name: confirm.item.name || t(KIND_LABEL[confirm.item.kind])})
+            : t('“{name}” will be moved to the trash. Linked pages will temporarily use the theme Header and Footer.', {name: confirm.item.name || t(KIND_LABEL[confirm.item.kind])})
           : '',
-        confirmLabel: confirm?.action === 'force' ? 'Изтрий завинаги' : 'В кошчето',
+        confirmLabel: t(confirm?.action === 'force' ? 'Delete permanently' : 'Move to trash'),
         danger: true,
         busy,
         onConfirm: confirmAction,
@@ -171,14 +172,14 @@ export function createPage(host) {
       setFailure('');
       try {
         const id = chromeId();
-        const label = name.trim() || (kind === 'footer' ? 'Нов Footer' : 'Нов Header');
+        const label = name.trim() || t(kind === 'footer' ? 'New Footer' : 'New Header');
         await request(BASE + '/chrome/' + id, 'PUT', {kind, name: label, elements: []});
         saved?.();
-        toast?.success?.(KIND_LABEL[kind] + ' е създаден(а).');
+        toast?.success?.(t('{kind} created.', {kind: t(KIND_LABEL[kind])}));
         navigate(chromeEditPath(id));
       } catch (error) {
-        setFailure(error.message);
-        toast?.error?.(error.message);
+        setFailure(t(error.message));
+        toast?.error?.(t(error.message));
       } finally {
         setBusy(false);
       }
@@ -187,17 +188,17 @@ export function createPage(host) {
     return h(React.Fragment, null,
       h('div', {className: 'react-page-heading'},
         h('div', null,
-          h('h1', null, 'Нов Header или Footer'),
-          h('p', {className: 'fpb-muted'}, 'Изберете типа, после отворете редактора за дизайна.')),
+          h('h1', null, t('New Header or Footer')),
+          h('p', {className: 'fpb-muted'}, t('Choose a type, then open the design editor.'))),
         h('div', {className: 'react-page-heading-actions'},
-          h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate(chromeListPath())}, 'Назад'))),
+          h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate(chromeListPath())}, t('Back')))),
       failure ? h('div', {className: 'react-form-error', role: 'alert'}, failure) : null,
       h('form', {className: 'react-page-form', onSubmit: submit},
         h('section', {className: 'page-editor-basic-panel'},
           h('div', {className: 'page-editor-basic-panel-body'},
             h('div', {className: 'react-form-grid'},
               h('label', {className: 'react-form-field'},
-                h('span', null, 'Тип *'),
+                h('span', null, t('Type *')),
                 h('select', {
                   value: kind,
                   onChange: (event) => { setKind(event.target.value); changed?.(); },
@@ -205,17 +206,18 @@ export function createPage(host) {
                   h('option', {value: 'header'}, 'Header'),
                   h('option', {value: 'footer'}, 'Footer'))),
               h('label', {className: 'react-form-field'},
-                h('span', null, 'Име'),
+                h('span', null, t('Name')),
                 h(C.Input, {
                   value: name,
-                  placeholder: kind === 'footer' ? 'Нов Footer' : 'Нов Header',
+                  placeholder: t(kind === 'footer' ? 'New Footer' : 'New Header'),
                   onChange: (event) => { setName(event.target.value); changed?.(); },
                 }))))),
         h('div', {className: 'react-form-actions'},
-          h(C.LoadingButton, {type: 'submit', loading: busy}, 'Създай и редактирай'))));
+          h(C.LoadingButton, {type: 'submit', loading: busy}, t('Create and edit')))));
   }
 
   return function ChromeAdminPage({path, navigate}) {
+    host.i18n.useLocale();
     const route = parseChromePath(path);
     if (route.view === 'create') {
       return h(ChromeCreate, {navigate});
