@@ -52,7 +52,7 @@ export function createPageChromePanel(host) {
         setHeaders(Array.isArray(payload.headers) ? payload.headers : []);
         setFooters(Array.isArray(payload.footers) ? payload.footers : []);
         saved?.();
-        toast?.success?.('Шапка и футър са записани.');
+        toast?.success?.('Header и Footer са записани.');
       } catch (error) {
         setFailure(error.message);
         toast?.error?.(error.message);
@@ -62,7 +62,7 @@ export function createPageChromePanel(host) {
     }
 
     if (!Number.isInteger(pageId) || pageId < 1) {
-      return h('p', {className: 'fpb-muted'}, 'Запазете страницата, за да изберете шапка и футър.');
+      return h('p', {className: 'fpb-muted'}, 'Запазете страницата, за да изберете Header и Footer.');
     }
     if (loading) {
       return h('p', {className: 'fpb-muted'}, 'Зареждане…');
@@ -70,24 +70,24 @@ export function createPageChromePanel(host) {
 
     return h('div', {className: 'react-form-grid'},
       failure ? h('div', {className: 'react-form-error', role: 'alert'}, failure) : null,
-      h('p', {className: 'fpb-globals-note'}, 'Празно поле ползва chrome на активната тема. Дизайните се управляват от „Шапки и футери“.'),
+      h('p', {className: 'fpb-globals-note'}, 'Празно поле ползва chrome на активната тема. Дизайните се управляват от „Headers & Footers“.'),
       h('label', {className: 'react-form-field'},
-        h('span', null, 'Шапка'),
+        h('span', null, 'Header'),
         h('select', {
           value: headerId,
           onChange: (event) => { setHeaderId(event.target.value); changed?.(); },
         },
           h('option', {value: ''}, 'От темата'),
-          ...headers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Шапка')))),
+          ...headers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Header')))),
       h('label', {className: 'react-form-field'},
-        h('span', null, 'Футър'),
+        h('span', null, 'Footer'),
         h('select', {
           value: footerId,
           onChange: (event) => { setFooterId(event.target.value); changed?.(); },
         },
           h('option', {value: ''}, 'От темата'),
-          ...footers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Футър')))),
+          ...footers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Footer')))),
       h('div', {className: 'react-form-actions'},
-        h(C.LoadingButton, {type: 'button', loading: saving, onClick: save}, 'Запази шапка/футър')));
+        h(C.LoadingButton, {type: 'button', loading: saving, onClick: save}, 'Запази Header/Footer')));
   };
 }

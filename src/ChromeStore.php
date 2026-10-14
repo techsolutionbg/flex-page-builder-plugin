@@ -25,6 +25,12 @@ final class ChromeStore
     {
         $schema = $this->db->getSchemaBuilder();
         if ($schema->hasTable('flex_page_builder_chrome')) {
+            if (!$schema->hasColumn('flex_page_builder_chrome', 'deleted_at')) {
+                $schema->table('flex_page_builder_chrome', static function (Blueprint $table): void {
+                    $table->timestamp('deleted_at')->nullable();
+                });
+            }
+
             return;
         }
         $schema->create('flex_page_builder_chrome', static function (Blueprint $table): void {
@@ -35,7 +41,9 @@ final class ChromeStore
             $table->longText('html');
             $table->char('html_hash', 64);
             $table->timestamp('updated_at')->nullable();
+            $table->timestamp('deleted_at')->nullable();
             $table->index('kind');
+            $table->index('deleted_at');
         });
     }
 
@@ -50,9 +58,10 @@ final class ChromeStore
     }
 
     /** @return list<array{id: string, kind: string, name: string}> */
-    public function list(?string $kind = null): array
+    public function list(?string $kind = null, string $view = 'active'): array
     {
         $query = $this->db->table('flex_page_builder_chrome')->orderBy('name')->orderBy('id');
+        $view === 'trash' ? $query->whereNotNull('deleted_at') : $query->whereNull('deleted_at');
         if ($kind !== null && in_array($kind, self::KINDS, true)) {
             $query->where('kind', $kind);
         }
@@ -83,7 +92,7 @@ final class ChromeStore
         if (!$this->validId($id)) {
             return null;
         }
-        $row = $this->db->table('flex_page_builder_chrome')->where('id', $id)->first();
+        $row = $this->db->table('flex_page_builder_chrome')->where('id', $id)->whereNull('deleted_at')->first();
         if ($row === null) {
             return null;
         }
@@ -125,7 +134,7 @@ final class ChromeStore
         }
         $name = trim(mb_substr($name, 0, 80));
         if ($name === '') {
-            $name = $kind === 'footer' ? 'Футър' : 'Шапка';
+            $name = $kind === 'footer' ? 'Footer' : 'Header';
         }
         $encoded = json_encode(['elements' => $elements], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         if (strlen($encoded) > self::MAX_BYTES) {
@@ -140,7 +149,11 @@ final class ChromeStore
             'html_hash' => $hash,
             'updated_at' => Time::now(),
         ];
-        if ($this->db->table('flex_page_builder_chrome')->where('id', $id)->exists()) {
+        $existing = $this->db->table('flex_page_builder_chrome')->where('id', $id)->first(['deleted_at']);
+        if ($existing !== null && $existing->deleted_at !== null) {
+            throw new \InvalidArgumentException('Записът е в кошчето. Възстановете го преди редактиране.', 409);
+        }
+        if ($existing !== null) {
             $this->db->table('flex_page_builder_chrome')->where('id', $id)->update($values);
         } else {
             $this->db->table('flex_page_builder_chrome')->insert($values + ['id' => $id]);
@@ -156,12 +169,40 @@ final class ChromeStore
         ];
     }
 
-    public function delete(string $id): void
+    public function trash(string $id): bool
     {
         if (!$this->validId($id)) {
-            return;
+            return false;
         }
-        $this->db->table('flex_page_builder_chrome')->where('id', $id)->delete();
+
+        return $this->db->table('flex_page_builder_chrome')
+            ->where('id', $id)
+            ->whereNull('deleted_at')
+            ->update(['deleted_at' => Time::now()]) > 0;
+    }
+
+    public function restore(string $id): bool
+    {
+        if (!$this->validId($id)) {
+            return false;
+        }
+
+        return $this->db->table('flex_page_builder_chrome')
+            ->where('id', $id)
+            ->whereNotNull('deleted_at')
+            ->update(['deleted_at' => null, 'updated_at' => Time::now()]) > 0;
+    }
+
+    public function forceDelete(string $id): bool
+    {
+        if (!$this->validId($id)) {
+            return false;
+        }
+
+        return $this->db->table('flex_page_builder_chrome')
+            ->where('id', $id)
+            ->whereNotNull('deleted_at')
+            ->delete() > 0;
     }
 
     public function validId(string $id): bool

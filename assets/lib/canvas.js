@@ -1,5 +1,7 @@
 const CANVAS_STYLE = 'html,body{overflow-x:clip}.corp-main--builder{padding-top:0;padding-bottom:0}[data-flex-page-builder-slot]{min-height:8rem}.fpb-element,.fpb-section,.fpb-columns,.fpb-column{position:relative;outline:1px dashed transparent;outline-offset:4px}.fpb-section,.fpb-columns,.fpb-column{display:grid;gap:.75rem;margin:.4rem 0;outline-color:#cbd5e1;min-width:0}.fpb-section{padding-block:2rem}.fpb-section .fpb-section{margin-block:.5rem;padding-block:1.25rem}.fpb-section-wallpaper{position:absolute;inset:0;z-index:0;pointer-events:none;background-position:center;background-repeat:no-repeat}.fpb-section-wallpaper.fpb-pattern{background-repeat:repeat;background-size:128px}.fpb-section-overlay{position:absolute;inset:0;z-index:1;pointer-events:none}.fpb-section-particles{position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none}.fpb-section-particles>canvas{display:block;width:100%;height:100%}.fpb-section>:not(.fpb-section-wallpaper):not(.fpb-section-overlay):not(.fpb-section-particles){position:relative;z-index:2}.fpb-section-body>.fpb-element:first-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-start:0}.fpb-section-body>.fpb-element:last-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-end:0}.fpb-section.fpb-section--full{width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:0}.fpb-section .fpb-section.fpb-section--full{width:100%;max-width:none;margin-inline:0}.fpb-section--boxed{box-sizing:border-box;width:100%;max-width:var(--corp-max-width,72rem);margin-inline:auto;padding-inline:var(--corp-gutter,clamp(1rem,4vw,2rem))}.fpb-is-hidden{opacity:.42;outline-color:#94a3b8}.fpb-section.fpb-is-hidden,.fpb-columns.fpb-is-hidden,.fpb-column.fpb-is-hidden{display:grid!important}.fpb-element.fpb-is-hidden{display:block!important}.fpb-is-hidden::after{content:"Скрита";position:absolute;z-index:4;top:.35rem;right:.45rem;padding:.15rem .4rem;border-radius:.25rem;background:#111827;color:#fff;font:600 .65rem/1.2 system-ui,sans-serif;pointer-events:none}.fpb-photo{position:relative;display:block;isolation:isolate;line-height:0}.fpb-photo img{display:block;width:100%;height:auto}.fpb-photo--grayscale img,.fpb-section-wallpaper.fpb-photo--grayscale,.fpb-section-wallpaper.fpb-photo--grayscale img{filter:grayscale(1)!important}.fpb-photo--tint::after,.fpb-section-wallpaper.fpb-photo--tint::after{content:"";position:absolute;inset:0;background:var(--fpb-tint,transparent);opacity:var(--fpb-tint-opacity,.4);mix-blend-mode:color;pointer-events:none}.fpb-element{cursor:pointer}.fpb-element.is-selected,.fpb-section.is-selected,.fpb-columns.is-selected,.fpb-column.is-selected{outline-color:#2563eb}.fpb-section-body,.fpb-column-body{display:grid;gap:1rem;min-height:4.5rem}.fpb-element>.fpb-drag,.fpb-section>.fpb-drag,.fpb-columns>.fpb-drag,.fpb-column>.fpb-drag{position:absolute;z-index:2;top:0;left:50%;width:1.7rem;height:.55rem;margin:0;padding:0;border:0;border-radius:999px;background:#2563eb;transform:translate(-50%,-80%);cursor:grab;opacity:0}.fpb-element:hover>.fpb-drag,.fpb-element.is-selected>.fpb-drag,.fpb-section:hover>.fpb-drag,.fpb-section.is-selected>.fpb-drag,.fpb-columns:hover>.fpb-drag,.fpb-columns.is-selected>.fpb-drag,.fpb-column:hover>.fpb-drag,.fpb-column.is-selected>.fpb-drag{opacity:1}.fpb-drag:active{cursor:grabbing}.fpb-drop-before{box-shadow:inset 0 3px 0 #2563eb}.fpb-drop-after{box-shadow:inset 0 -3px 0 #2563eb}.fpb-section-body.fpb-drop-inside,.fpb-column-body.fpb-drop-inside{outline:2px solid #2563eb}[contenteditable]{cursor:text}[contenteditable]:focus{outline:none}.fpb-empty{margin:0;padding:2.5rem 1rem;text-align:center;color:#6b7280}';
 
+const SELECTION_STYLE = '.fpb-delete{position:absolute;z-index:5;top:.2rem;right:.2rem;display:inline-flex;align-items:center;justify-content:center;width:1.65rem;height:1.65rem;margin:0;padding:0;border:1px solid var(--control-border,#526456);border-radius:.45rem;background:var(--control-bg,#1b2820);color:var(--control-text,#f2f5f1);line-height:0;cursor:pointer;box-shadow:0 2px 8px rgb(0 0 0 / 25%);transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}.fpb-delete svg{display:block;width:1rem;height:1rem}.fpb-delete:hover{border-color:var(--border-strong,#78917d);background:var(--surface-hover,#293a2f);transform:scale(1.05)}.fpb-delete:active{transform:scale(.96)}.fpb-delete:focus-visible{outline:2px solid var(--focus-ring,#8fb397);outline-offset:2px}';
+
 function caretOffset(root) {
   const selection = root.ownerDocument.getSelection();
   if (!selection || selection.rangeCount === 0 || !root.contains(selection.focusNode)) return 0;
@@ -112,8 +114,27 @@ function sameIds(markup, slot) {
 
 function markSelected(slot, selected) {
   slot.querySelectorAll('.is-selected').forEach((node) => node.classList.remove('is-selected'));
+  slot.querySelectorAll('.fpb-delete').forEach((button) => button.remove());
   const current = selected ? slot.querySelector('[data-fpb-id="' + CSS.escape(selected) + '"]') : null;
-  current?.classList.add('is-selected');
+  if (!current) return;
+  current.classList.add('is-selected');
+  const removeButton = slot.ownerDocument.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'fpb-delete';
+  removeButton.setAttribute('aria-label', 'Изтрий елемента');
+  removeButton.title = 'Изтрий елемента';
+  const icon = slot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  const path = slot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'm6 6 12 12M18 6 6 18');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2.2');
+  path.setAttribute('stroke-linecap', 'round');
+  icon.appendChild(path);
+  removeButton.appendChild(icon);
+  current.appendChild(removeButton);
 }
 
 function animMs(node, name, fallback) {
@@ -151,11 +172,12 @@ export function createCanvas(host) {
   const {React} = host;
   const h = React.createElement;
 
-  return function Canvas({frameHtml, markup, selected, motionPreview = '', onSelect, onInsert, onMove, onText, dragKind}) {
+  return function Canvas({frameHtml, markup, selected, motionPreview = '', onSelect, onInsert, onMove, onRemove, onText, dragKind}) {
     const frame = React.useRef(null);
     const select = React.useRef(onSelect);
     const insert = React.useRef(onInsert);
     const move = React.useRef(onMove);
+    const remove = React.useRef(onRemove);
     const write = React.useRef(onText);
     const painting = React.useRef(false);
     const applying = React.useRef(false);
@@ -167,6 +189,7 @@ export function createCanvas(host) {
     select.current = onSelect;
     insert.current = onInsert;
     move.current = onMove;
+    remove.current = onRemove;
     write.current = onText;
     selectedRef.current = selected;
 
@@ -179,6 +202,12 @@ export function createCanvas(host) {
         if (!slot || slot.dataset.bound === '1') return;
         slot.dataset.bound = '1';
         doc.addEventListener('click', (event) => {
+          if (event.target.closest?.('.fpb-delete')) {
+            event.preventDefault();
+            event.stopPropagation();
+            remove.current?.();
+            return;
+          }
           const target = event.target.closest('[data-fpb-id]');
           select.current(target ? target.getAttribute('data-fpb-id') : null);
         });
@@ -296,7 +325,7 @@ export function createCanvas(host) {
             style.id = 'fpb-canvas-style';
             doc.head.appendChild(style);
           }
-          if (style.textContent !== CANVAS_STYLE) style.textContent = CANVAS_STYLE;
+          if (style.textContent !== CANVAS_STYLE + SELECTION_STYLE) style.textContent = CANVAS_STYLE + SELECTION_STYLE;
           if (!doc.getElementById('fpb-patterns-css')) {
             const source = document.querySelector('link[rel="stylesheet"][href*="patterns.css"]');
             const link = doc.createElement('link');
@@ -335,6 +364,7 @@ export function createCanvas(host) {
           const editingIndex = editing ? editables.indexOf(editing) : -1;
           const offset = editing ? caretOffset(editing) : 0;
           slot.innerHTML = markup;
+          markSelected(slot, selectedRef.current);
           if (editingId) {
             const next = [...(slot.querySelector('[data-fpb-id="' + CSS.escape(editingId) + '"]')?.querySelectorAll('[contenteditable]') || [])];
             const target = next[editingIndex] || next[0];

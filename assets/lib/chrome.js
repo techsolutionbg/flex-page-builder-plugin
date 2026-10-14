@@ -37,9 +37,9 @@ export function createChromePanel(host) {
         : h('p', {className: 'fpb-muted'}, 'Няма записани.'));
 
     return h('div', {className: 'fpb-globals'},
-      h('p', {className: 'fpb-globals-note'}, 'Библиотеката е и в „Съдържание → Шапки и футери“. На страницата ги избирате от полетата Шапка / Футър (или от Настройки).'),
-      section('Шапки', 'header', headers),
-      section('Футери', 'footer', footers),
+      h('p', {className: 'fpb-globals-note'}, 'Библиотеката е и в „Съдържание → Headers & Footers“. На страницата ги избирате от полетата Header / Footer (или от Настройки).'),
+      section('Headers', 'header', headers),
+      section('Footers', 'footer', footers),
       onRefresh ? h('div', {className: 'fpb-inspector-actions'},
         h(C.Button, {type: 'button', variant: 'secondary', onClick: onRefresh}, 'Презареди списъка')) : null);
   };

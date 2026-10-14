@@ -40,29 +40,46 @@ final readonly class ChromeController
                     return $this->json($this->replaceLibrary($store, $this->body($request)));
                 }
 
+                $view = ($request->getQueryParams()['view'] ?? 'active') === 'trash' ? 'trash' : 'active';
                 $compiler = new HtmlCompiler();
                 $loaded = (new SettingsStore())->load();
 
                 return $this->json([
                     'headers' => $store->list('header'),
                     'footers' => $store->list('footer'),
-                    'items' => $store->list(),
+                    'items' => $store->list(null, $view),
                     'layouts' => $this->themes->pageTemplates(),
                     'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
                     'button_styles' => $compiler->normalizeButtonStyles($loaded['button_styles']),
                 ]);
             }
+            if ($request->getMethod() === 'POST' && str_ends_with($path, '/restore')) {
+                if (!$store->restore($id)) {
+                    throw new \InvalidArgumentException('Записът не е намерен в кошчето.', 404);
+                }
+
+                return $this->json(['ok' => true]);
+            }
+            if ($request->getMethod() === 'DELETE' && str_ends_with($path, '/force')) {
+                if (!$store->forceDelete($id)) {
+                    throw new \InvalidArgumentException('Окончателно се изтрива само запис от кошчето.', 404);
+                }
+
+                return $this->json(['ok' => true]);
+            }
             if ($request->getMethod() === 'PUT') {
                 return $this->json($this->saveOne($store, $id, $this->body($request)));
             }
             if ($request->getMethod() === 'DELETE') {
-                $store->delete($id);
+                if (!$store->trash($id)) {
+                    throw new \InvalidArgumentException('Записът не е намерен.', 404);
+                }
 
                 return $this->json(['ok' => true]);
             }
             $item = $store->get($id);
             if ($item === null) {
-                throw new \InvalidArgumentException('Шапка/футърът не е намерен.', 404);
+                throw new \InvalidArgumentException('Header/Footer не е намерен.', 404);
             }
 
             return $this->json($item);
@@ -139,7 +156,7 @@ final readonly class ChromeController
             ? $requested
             : (in_array($current, $ids, true) ? $current : (string) ($ids[0] ?? 'default'));
 
-        return (new LayoutFrame($this->themes, $this->pages, $this->menus, $this->records, $this->media))->render($page, $template);
+        return (new LayoutFrame($this->themes, $this->pages, $this->menus, $this->records, $this->media))->render($page, $template, true);
     }
 
     /** @param array<string, mixed> $payload */

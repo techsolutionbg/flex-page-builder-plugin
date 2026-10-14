@@ -26,9 +26,12 @@ final class PageGateway
     {
         $id = (int) $page->getAttribute('id');
         $settings = is_array($page->getAttribute('settings')) ? $page->getAttribute('settings') : [];
+        $settings['content_builder'] = 'flex/page-builder';
         $settings['template'] = $template;
         try {
-            if ((string) ($settings['template'] ?? '') !== (string) (is_array($page->getAttribute('settings')) ? ($page->getAttribute('settings')['template'] ?? '') : '')) {
+            $currentSettings = is_array($page->getAttribute('settings')) ? $page->getAttribute('settings') : [];
+            if (($currentSettings['content_builder'] ?? null) !== 'flex/page-builder'
+                || (string) ($settings['template'] ?? '') !== (string) ($currentSettings['template'] ?? '')) {
                 $this->service->updateSettings($id, $settings);
             }
             if ($html !== (string) $page->getAttribute('content')) {

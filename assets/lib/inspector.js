@@ -6,7 +6,7 @@ export function createInspector(host) {
   const C = host.components;
   const h = React.createElement;
 
-  return function Inspector({element, onChange, onRemove, onMove, onAddColumns, onPreviewAnimation, mode, device = 'desktop', onDevice, pages = [], buttonStyles = [], defaults: typeDefaults = {}}) {
+  return function Inspector({element, onChange, onRemove, onMove, onAddColumns, onPreviewAnimation, mode, device = 'desktop', onDevice, pages = [], buttonStyles = [], defaults: typeDefaults = {}, collapseAllRef}) {
     const [collapsed, setCollapsed] = React.useState(() => {
       try {
         const stored = JSON.parse(sessionStorage.getItem('fpb-inspector-collapsed') || '{}');
@@ -49,17 +49,17 @@ export function createInspector(host) {
     const displayValue = (key) => (view[key] != null ? view[key] : inherited[key]);
     const field = (label, child, key) => {
       const over = key && isOverridden(key);
-      return h('label', {className: 'fpb-field' + (over ? ' is-override' : '')},
+      return h('label', {key: key || label, className: 'fpb-field' + (over ? ' is-override' : '')},
         h('span', null, label, over ? h('button', {type: 'button', className: 'fpb-inherit', onClick: (event) => { event.preventDefault(); setStyle({[key]: null}); }}, 'Наследи') : null),
         child);
     };
     const sizeField = field('Размер на текста (px)', h(C.Input, {type: 'number', min: 8, max: 160, value: view.size == null ? '' : String(view.size), placeholder: placeholderFor('size'), onChange: (event) => setStyle({size: event.target.value === '' ? null : Number(event.target.value)})}), 'size');
     const lineField = field('Междуредие', h(C.Input, {type: 'number', min: 0.8, max: 3, step: 0.1, value: view.line_height == null ? '' : String(view.line_height), placeholder: placeholderFor('line_height'), onChange: (event) => setStyle({line_height: event.target.value === '' ? null : Number(event.target.value)})}), 'line_height');
     const weightField = field('Дебелина', h('select', {value: view.weight == null ? '' : String(view.weight), onChange: (event) => setStyle({weight: event.target.value === '' ? null : Number(event.target.value)})},
-      [h('option', {value: ''}, inherited.weight != null ? inheritLabel + ' (' + inherited.weight + ')' : inheritLabel), ...[300, 400, 500, 600, 700, 800].map((weight) => h('option', {key: weight, value: String(weight)}, String(weight)))]), 'weight');
+      [h('option', {key: 'inherited', value: ''}, inherited.weight != null ? inheritLabel + ' (' + inherited.weight + ')' : inheritLabel), ...[300, 400, 500, 600, 700, 800].map((weight) => h('option', {key: weight, value: String(weight)}, String(weight)))]), 'weight');
     const alignEffective = displayValue('align');
     const align = alignEffective === 'center' || alignEffective === 'right' ? alignEffective : 'left';
-    const alignField = h('div', {className: 'fpb-align' + (isOverridden('align') ? ' is-override' : ''), role: 'group', 'aria-label': 'Подравняване'},
+    const alignField = h('div', {key: 'align', className: 'fpb-align' + (isOverridden('align') ? ' is-override' : ''), role: 'group', 'aria-label': 'Подравняване'},
       [['left', 'Ляво', 'M4 6h16M4 12h10M4 18h16'], ['center', 'Център', 'M4 6h16M7 12h10M4 18h16'], ['right', 'Дясно', 'M4 6h16M10 12h10M4 18h16']].map(([value, label, path]) => h('button', {
         key: value,
         type: 'button',
@@ -535,7 +535,7 @@ export function createInspector(host) {
             : {animation: value});
         },
       },
-        [h('option', {value: ''}, inherited.animation
+        [h('option', {key: 'inherited', value: ''}, inherited.animation
           ? inheritLabel + ' (' + (ENTRANCE_ANIMATIONS.find((item) => item.id === inherited.animation)?.label || inherited.animation) + ')'
           : 'Без'),
           ...ENTRANCE_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, item.label))]), 'animation'),
@@ -571,7 +571,7 @@ export function createInspector(host) {
         value: view.hover_animation == null ? '' : String(view.hover_animation),
         onChange: (event) => setStyle({hover_animation: event.target.value === '' ? null : event.target.value}),
       },
-        [h('option', {value: ''}, inherited.hover_animation
+        [h('option', {key: 'inherited', value: ''}, inherited.hover_animation
           ? inheritLabel + ' (' + (HOVER_ANIMATIONS.find((item) => item.id === inherited.hover_animation)?.label || inherited.hover_animation) + ')'
           : 'Без'),
           ...HOVER_ANIMATIONS.map((item) => h('option', {key: item.id, value: item.id}, item.label))]), 'hover_animation'),
@@ -583,7 +583,6 @@ export function createInspector(host) {
       ['left', 'Ляво'],
     ];
     const boxGroup = (title, prefix) => h('div', {className: 'fpb-box', key: prefix},
-      h('p', {className: 'fpb-box-title'}, title),
       h('div', {className: 'fpb-box-sides'}, boxSides.map(([side, label]) => {
         const key = prefix + '_' + side;
         return field(label, h(C.Input, {
@@ -617,7 +616,92 @@ export function createInspector(host) {
       ['Анимация', animation],
       hover.length ? ['Hover', hover] : null,
     ].filter((entry) => entry && entry[1].length);
-    const deviceLabel = WIDTHS.find((item) => item.id === device)?.label || 'Бюро';
+    const primaryContentTitle = ({paragraph: 'Текст', heading: 'Заглавие', html: 'HTML', image: 'Изображение', button: 'Бутон', list: 'Списък', spacer: 'Размер', section: 'Настройки на секцията'})[element.type] || 'Основно съдържание';
+    const subsectionDefinitions = (title) => {
+      if (title === 'Позиция') return [
+        {key: 'name', title: 'Име', fields: ['Име в структурата']},
+        {key: 'order', title: 'Подредба', fields: ['actions']},
+      ];
+      if (title === 'Съдържание') return [
+        {key: 'primary', title: primaryContentTitle, fields: ['Ниво', 'Текст', 'HTML', 'image', 'Алтернативен текст', 'ordered', 'Редове, по един на ред', 'Височина (px)']},
+        {key: 'link', title: 'Връзка', fields: ['Дизайн', 'link_type', 'Страница', 'Адрес']},
+        {key: 'image-effects', title: 'Обработка на изображението', fields: ['image_filter', 'image_tint', 'image_tint_opacity']},
+        {key: 'visibility', title: 'Видимост', fields: ['hidden', 'hidden-note']},
+        {key: 'layout', title: 'Ширина и колони', fields: ['full_width', 'Добави колони', 'columns']},
+      ];
+      if (title === 'Текст') return [
+        {key: 'typography', title: 'Шрифт и подравняване', fields: ['size', 'line_height', 'weight', 'align']},
+        {key: 'effects', title: 'Форматиране и ефекти', fields: ['italic', 'text_transform', 'letter_spacing', 'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color']},
+      ];
+      if (title === 'Отстъп') return [
+        {key: 'padding', title: 'Padding', fields: ['padding']},
+        {key: 'margin', title: 'Margin', fields: ['margin']},
+      ];
+      if (title === 'Вид') return [
+        {key: 'background', title: 'Фон', fields: ['background', 'gradient', 'patterns', 'wallpaper', 'wallpaper_fit', 'wallpaper_position', 'image_filter', 'image_tint', 'image_tint_opacity', 'overlay']},
+        {key: 'colors', title: 'Цветове', fields: ['color']},
+        {key: 'border', title: 'Рамка', fields: ['border_width', 'border_color', 'radius']},
+      ];
+      if (title === 'Частици') return [
+        {key: 'effect', title: 'Ефект', fields: ['Ефект']},
+        {key: 'details', title: 'Настройки на ефекта', fields: ['particles_color', 'Плътност (10–150)', 'Скорост (1–10)']},
+      ];
+      if (title === 'Анимация') return [
+        {key: 'entrance', title: 'Входяща анимация', fields: ['animation', 'animation_duration', 'animation_delay', 'anim-preview']},
+        {key: 'hover', title: 'Hover анимация', fields: ['hover_animation']},
+      ];
+      if (title === 'Hover') return [
+        {key: 'hover-colors', title: 'Цветове при Hover', fields: ['hover_background', 'hover_color', 'hover_border_color']},
+      ];
+      return [{key: 'settings', title: 'Настройки', fields: []}];
+    };
+    collapseAllRef.current = () => setCollapsed((current) => {
+      const keys = [];
+      sections.forEach(([title]) => {
+        if (!title) return;
+        keys.push(title);
+        subsectionDefinitions(title).forEach(({key}) => {
+          keys.push(['subsection', element.id || element.type, device, title, key].join(':'));
+        });
+        keys.push(['subsection', element.id || element.type, device, title, 'other'].join(':'));
+      });
+      const expandAll = keys.length > 0 && keys.every((key) => current[key] === true);
+      const next = {...current};
+      keys.forEach((key) => { next[key] = !expandAll; });
+      sessionStorage.setItem('fpb-inspector-collapsed', JSON.stringify(next));
+      return next;
+    });
+    const childKey = (child) => String(child?.key ?? child?.props?.key ?? '');
+    const renderSubsections = (title, fields) => {
+      const remaining = new Set(fields);
+      const groups = subsectionDefinitions(title).map((definition) => {
+        const members = fields.filter((child) => definition.fields.includes(childKey(child)));
+        members.forEach((child) => remaining.delete(child));
+        return members.length ? {key: definition.key, title: definition.title, fields: members} : null;
+      }).filter(Boolean);
+      if (remaining.size) groups.push({key: 'other', title: 'Други настройки', fields: [...remaining]});
+
+      return h('div', {className: 'fpb-subsections'}, groups.map((group) => {
+        const stateKey = ['subsection', element.id || element.type, device, title, group.key].join(':');
+        const closed = collapsed[stateKey] === true;
+        return h('section', {className: 'fpb-subsection' + (closed ? ' is-collapsed' : ''), key: group.key},
+          h('button', {
+            type: 'button',
+            className: 'fpb-subsection-toggle',
+            'aria-expanded': !closed,
+            onClick: () => toggleSection(stateKey),
+          },
+            h('span', {className: 'fpb-section-toggle-label'}, group.title),
+            h('span', {className: 'fpb-section-chevron', 'aria-hidden': true},
+              h('svg', {viewBox: '0 0 24 24', width: 14, height: 14},
+                h('path', {d: 'M9 6l6 6-6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round'})))),
+          h('div', {className: 'fpb-subsection-body', 'aria-hidden': closed},
+            h('div', {className: 'fpb-subsection-clip'},
+              h('div', {className: 'fpb-subsection-body-inner'}, group.fields))));
+      }));
+    };
+    const deviceLabels = {desktop: 'Desktop', tablet: 'Tablet', phone: 'Phone'};
+    const deviceLabel = deviceLabels[device] || 'Desktop';
     return h('div', {className: 'fpb-inspector'},
       h('div', {className: 'fpb-inspector-device'},
         h('div', {className: 'fpb-devices', role: 'group', 'aria-label': 'Устройство'},
@@ -625,9 +709,17 @@ export function createInspector(host) {
             key: item.id,
             type: 'button',
             className: item.id === device ? 'is-active' : '',
+            'aria-label': deviceLabels[item.id],
             onClick: () => onDevice?.(item.id),
-          }, item.label))),
-        desktop ? null : h('p', {className: 'fpb-device-note'}, 'Промените важат само за „' + deviceLabel + '“. Празно поле остава както на бюро.')),
+          },
+            h('svg', {viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true'},
+              item.id === 'desktop'
+                ? [h('rect', {key: 'screen', x: 3, y: 4, width: 18, height: 13, rx: 1.5}), h('path', {key: 'stand', d: 'M8 21h8M12 17v4'})]
+                : item.id === 'tablet'
+                  ? [h('rect', {key: 'body', x: 5, y: 2.5, width: 14, height: 19, rx: 2}), h('path', {key: 'home', d: 'M11 18.5h2'})]
+                  : [h('rect', {key: 'body', x: 7, y: 2.5, width: 10, height: 19, rx: 2}), h('path', {key: 'home', d: 'M11 18.5h2'})]),
+            h('span', null, deviceLabels[item.id])))),
+        desktop ? null : h('p', {className: 'fpb-device-note'}, 'Промените важат само за „' + deviceLabel + '“. Празно поле остава както на Desktop.')),
       sections.map(([title, fields]) => {
         const closed = collapsed[title] === true;
         return h('section', {className: 'fpb-section' + (closed ? ' is-collapsed' : ''), key: title},
@@ -643,7 +735,7 @@ export function createInspector(host) {
                 h('path', {d: 'M9 6l6 6-6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round'})))),
           h('div', {className: 'fpb-section-body', 'aria-hidden': closed},
             h('div', {className: 'fpb-section-clip'},
-              h('div', {className: 'fpb-section-body-inner'}, fields))));
+              h('div', {className: 'fpb-section-body-inner'}, renderSubsections(title, fields)))));
       }));
   };
 }

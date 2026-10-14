@@ -20,7 +20,7 @@ final class LayoutFrame
         private ?PublicMediaApi $media,
     ) {}
 
-    public function render(Page $page, string $template): string
+    public function render(Page $page, string $template, bool $chromeOnly = false): string
     {
         $preview = clone $page;
         $preview->setAttribute('content', '');
@@ -36,7 +36,7 @@ final class LayoutFrame
         $menuData['__flex_theme_records'] = fn(string $resource): array => $this->records->published($resource);
         $menuData['featured_media'] = $this->media?->get((int) $page->getAttribute('featured_media_id')) ?? [];
 
-        $html = $this->themes->render('page.twig', (new ThemeChrome())->inject([
+        $renderData = (new ThemeChrome())->inject([
             'page' => $preview,
             'page_public_path' => $publicPages->publicPath($page),
             'page_settings' => $settings,
@@ -44,7 +44,9 @@ final class LayoutFrame
             'document_title' => (string) $page->getAttribute('title'),
             'navigation' => [],
             'flex_page_builder' => true,
-        ] + $menuData));
+            'flex_page_builder_chrome_preview' => $chromeOnly,
+        ] + $menuData);
+        $html = $this->themes->render('page.twig', $renderData);
 
         $guard = '<script>document.addEventListener("click",function(event){var link=event.target.closest&&event.target.closest("a");if(link)event.preventDefault();},true);</script>';
 

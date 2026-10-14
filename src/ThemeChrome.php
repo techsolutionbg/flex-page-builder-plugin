@@ -20,6 +20,13 @@ final class ThemeChrome
      */
     public function inject(array $data): array
     {
+        if (($data['flex_page_builder_chrome_preview'] ?? false) === true) {
+            $data['flex_builder_header'] = null;
+            $data['flex_builder_footer'] = null;
+
+            return $data;
+        }
+
         $page = $data['page'] ?? null;
         $pageId = null;
         if ($page instanceof Page) {
