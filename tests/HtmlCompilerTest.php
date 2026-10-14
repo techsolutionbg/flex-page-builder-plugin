@@ -190,6 +190,44 @@ final class HtmlCompilerTest extends TestCase
         self::assertStringContainsString('<h2>Лява</h2>', $html);
     }
 
+    public function testItPreservesResizedColumnWidthsWhenNormalizingAndRendering(): void
+    {
+        $elements = [[
+            'id' => 'row',
+            'type' => 'columns',
+            'columns' => 2,
+            'column_widths' => [28, 72],
+            'children' => [
+                ['id' => 'c1', 'type' => 'column', 'children' => []],
+                ['id' => 'c2', 'type' => 'column', 'children' => []],
+            ],
+        ]];
+
+        self::assertEquals([28.0, 72.0], $this->compiler->normalize($elements)[0]['column_widths']);
+        $html = $this->compiler->compile($elements, static fn(int $id): string => '');
+        self::assertStringContainsString('grid-template-columns:minmax(0,28fr) minmax(0,72fr)', $html);
+    }
+
+    public function testItKeepsWholeNumberRatiosForThreeColumns(): void
+    {
+        $elements = [[
+            'id' => 'row',
+            'type' => 'columns',
+            'columns' => 3,
+            'column_widths' => [50, 25, 25],
+            'children' => [
+                ['id' => 'c1', 'type' => 'column', 'children' => []],
+                ['id' => 'c2', 'type' => 'column', 'children' => []],
+                ['id' => 'c3', 'type' => 'column', 'children' => []],
+            ],
+        ]];
+
+        $normalized = $this->compiler->normalize($elements);
+        self::assertEquals([50.0, 25.0, 25.0], $normalized[0]['column_widths']);
+        $html = $this->compiler->compile($normalized, static fn(int $id): string => '');
+        self::assertStringContainsString('grid-template-columns:minmax(0,50fr) minmax(0,25fr) minmax(0,25fr)', $html);
+    }
+
     public function testItAppliesGlobalDefaultsWhenAnElementValueIsMissing(): void
     {
         $html = $this->compiler->compile([
@@ -199,9 +237,9 @@ final class HtmlCompilerTest extends TestCase
             'heading' => ['level' => 1, 'size' => 40, 'color' => '#112233'],
         ]);
 
-        self::assertStringContainsString('<h1 style="font-size:40px">Наследство</h1>', $html);
+        self::assertStringContainsString('<h1 style="font-size:40px;color:#112233">Наследство</h1>', $html);
         self::assertStringContainsString('color:#112233', $html);
-        self::assertStringContainsString('<h3 style="font-size:20px">Собствено</h3>', $html);
+        self::assertStringContainsString('<h3 style="font-size:20px;color:#112233">Собствено</h3>', $html);
     }
 
     public function testItKeepsAnExplicitFalseOverAGlobalFullWidthSection(): void

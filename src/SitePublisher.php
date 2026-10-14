@@ -44,6 +44,8 @@ final class SitePublisher
                 $defaults,
                 fn(int $id): string => $this->links->url($id),
                 $buttonStyles,
+                null,
+                SiteLogo::urls($this->media),
             );
             $this->gateway->write($page, $html, $template);
             $fresh = $this->gateway->find($pageId);

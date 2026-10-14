@@ -96,6 +96,7 @@ final readonly class AdminController
             'elements' => $elements,
             'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
             'button_styles' => $compiler->normalizeButtonStyles($loaded['button_styles']),
+            'site_logos' => SiteLogo::urls($this->media),
             'base_hash' => $hash,
             'state' => $state,
         ];
@@ -144,6 +145,8 @@ final readonly class AdminController
             $defaults,
             fn(int $pageId): string => $this->links->url($pageId),
             $buttonStyles,
+            null,
+            SiteLogo::urls($this->media),
         );
         $layout = $this->layout(is_string($body['layout'] ?? null) ? $body['layout'] : '', $page);
         $headerId = $this->resolveChromeId($chrome, $body['header_id'] ?? null, 'header');

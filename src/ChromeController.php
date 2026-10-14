@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Flex\PageBuilder;
 
 use Flex\Contracts\Http\ResponseFactoryInterface;
+use Flex\Extension\V1\ExtensionApiInterface;
+use Flex\Extensions\FrontendExtensionAssets;
 use Flex\Http\RequestInput;
 use Flex\Media\PublicMediaApi;
 use Flex\Menus\PublicMenuRenderer;
@@ -23,6 +25,8 @@ final readonly class ChromeController
         private PageRepository $pages,
         private PublicMenuRenderer $menus,
         private ThemeResourceService $records,
+        private ExtensionApiInterface $extensionApi,
+        private FrontendExtensionAssets $frontendAssets,
     ) {}
 
     /** @param array<string, string> $arguments */
@@ -34,6 +38,26 @@ final readonly class ChromeController
         try {
             if (str_ends_with($path, '/frame')) {
                 return $this->responses->html($this->frame((string) ($request->getQueryParams()['template'] ?? '')), 200, ['Cache-Control' => 'no-store']);
+            }
+            if (str_ends_with($path, '/shortcode-preview') && $request->getMethod() === 'POST') {
+                $body = $this->body($request);
+                $shortcode = trim((string) ($body['shortcode'] ?? ''));
+                if (mb_strlen($shortcode) > 1000 || preg_match('/^(?:\[[a-zA-Z][a-zA-Z0-9_-]*(?:\s[^\[\]<>]*)?\]\s*)+$/', $shortcode) !== 1) {
+                    throw new \InvalidArgumentException('Въведете валиден кратък код.', 422);
+                }
+                $pageId = filter_var($body['page_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                $page = is_int($pageId) ? $this->pages->find($pageId) : null;
+                $context = ['request' => $request];
+                if ($page !== null) {
+                    $context['page'] = $page->toPublicArray();
+                }
+                $html = $this->extensionApi->applyFilters('public.content', $shortcode, $context);
+
+                return $this->json([
+                    'html' => is_string($html) ? $html : $shortcode,
+                    'rendered' => is_string($html) && $html !== $shortcode,
+                    'styles' => $this->frontendAssets->publicStyles(),
+                ]);
             }
             if ($id === '') {
                 if ($request->getMethod() === 'PUT') {
@@ -51,6 +75,7 @@ final readonly class ChromeController
                     'layouts' => $this->themes->pageTemplates(),
                     'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
                     'button_styles' => $compiler->normalizeButtonStyles($loaded['button_styles']),
+                    'site_logos' => SiteLogo::urls($this->media),
                 ]);
             }
             if ($request->getMethod() === 'POST' && str_ends_with($path, '/restore')) {
@@ -129,6 +154,7 @@ final readonly class ChromeController
             fn(int $pageId): string => $this->links->url($pageId),
             $buttonStyles,
             $kind,
+            SiteLogo::urls($this->media),
         );
 
         return $store->save($id, $kind, $name, $elements, $html);

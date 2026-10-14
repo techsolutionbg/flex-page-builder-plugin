@@ -3,6 +3,7 @@ import {editorPath} from './paths.js';
 export function createPageAction() {
   return {
     label: 'Отвори в Page Builder',
+    contentBuilder: 'flex/page-builder',
     onSelect(row, helpers) {
       if (row?.id) helpers?.navigate?.(editorPath(row.id));
     },
@@ -16,8 +17,6 @@ export function createEditorLink(host) {
   return function PageBuilderLink({context, navigate}) {
     const id = Number(context?.id);
     if (context?.type !== 'page' || !Number.isInteger(id) || id < 1) return null;
-    return h('div', {className: 'fpb-editor-link'},
-      h('span', null, 'Съдържанието между Header и Footer се подрежда в Page Builder. Header и Footer могат да са от темата или от библиотеката в редактора.'),
-      h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate?.(editorPath(id))}, 'Отвори в Page Builder'));
+    return h(C.Button, {type: 'button', variant: 'secondary', onClick: () => navigate?.(editorPath(id))}, 'Отвори в Page Builder');
   };
 }

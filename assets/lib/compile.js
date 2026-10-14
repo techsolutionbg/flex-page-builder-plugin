@@ -23,6 +23,18 @@ function fontWeight(value) {
   return [300, 400, 500, 600, 700, 800].includes(weight) ? weight : null;
 }
 
+function fontFamily(value) {
+  const families = {
+    system: 'system-ui, sans-serif',
+    arial: 'Arial, Helvetica, sans-serif',
+    georgia: 'Georgia, serif',
+    trebuchet: "'Trebuchet MS', sans-serif",
+    verdana: 'Verdana, Geneva, sans-serif',
+    monospace: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+  };
+  return Object.hasOwn(families, value) ? families[value] : null;
+}
+
 export function colorValue(value) {
   const color = String(value || '').trim().toLowerCase();
   return /^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(color) ? color : null;
@@ -68,11 +80,19 @@ function textEffectsCss(element) {
   if (shadow) parts.push('text-shadow:' + shadow);
   const spacing = signedPx(element.letter_spacing, 20);
   if (spacing !== null) parts.push('letter-spacing:' + spacing + 'px');
+  const wordSpacing = signedPx(element.word_spacing, 40);
+  if (wordSpacing !== null) parts.push('word-spacing:' + wordSpacing + 'px');
   if (element.text_transform === 'uppercase' || element.text_transform === 'lowercase' || element.text_transform === 'capitalize' || element.text_transform === 'none') {
     parts.push('text-transform:' + element.text_transform);
   }
   if (element.italic === true) parts.push('font-style:italic');
   else if (element.italic === false) parts.push('font-style:normal');
+  if (['none', 'underline', 'line-through', 'overline'].includes(element.text_decoration)) parts.push('text-decoration-line:' + element.text_decoration);
+  if (['solid', 'double', 'dotted', 'dashed', 'wavy'].includes(element.decoration_style)) parts.push('text-decoration-style:' + element.decoration_style);
+  const decorationColor = colorValue(element.decoration_color);
+  if (decorationColor) parts.push('text-decoration-color:' + decorationColor);
+  const decorationThickness = pxValue(element.decoration_thickness, 8);
+  if (decorationThickness !== null) parts.push('text-decoration-thickness:' + decorationThickness + 'px');
   const stroke = pxValue(element.stroke_width, 8);
   if (stroke) {
     parts.push('-webkit-text-stroke:' + stroke + 'px ' + (colorValue(element.stroke_color) || '#111827'));
@@ -171,16 +191,35 @@ function hasTint(element) {
   return !!(colorValue(element?.image_tint) || colorValue(element?.tablet?.image_tint) || colorValue(element?.phone?.image_tint));
 }
 
+function imageFilterCss(element) {
+  const filters = [];
+  if (element?.image_filter === 'grayscale') filters.push('grayscale(1)');
+  [
+    ['image_brightness', 200, '%', 'brightness'],
+    ['image_contrast', 200, '%', 'contrast'],
+    ['image_saturation', 300, '%', 'saturate'],
+  ].forEach(([key, max, suffix, name]) => {
+    const value = Number(element?.[key]);
+    if (element?.[key] != null && Number.isFinite(value)) filters.push(name + '(' + Math.max(0, Math.min(max, value)) + suffix + ')');
+  });
+  const blur = Number(element?.image_blur);
+  if (element?.image_blur != null && Number.isFinite(blur)) filters.push('blur(' + Math.max(0, Math.min(20, blur)) + 'px)');
+  return filters.join(' ') || 'none';
+}
+
 function photoClass(element) {
   return 'fpb-photo' + (element.image_filter === 'grayscale' ? ' fpb-photo--grayscale' : '') + (hasTint(element) ? ' fpb-photo--tint' : '');
 }
 
 function photoVars(element, wrap) {
-  if (!hasTint(element)) return '';
-  const tint = colorValue(element.image_tint) || 'transparent';
-  const raw = Number(element.image_tint_opacity);
-  const pct = Number.isInteger(raw) ? Math.max(0, Math.min(100, raw)) : 40;
-  const css = '--fpb-tint:' + tint + ';--fpb-tint-opacity:' + (pct / 100);
+  const declarations = ['--fpb-image-filter:' + imageFilterCss(element)];
+  if (hasTint(element)) {
+    const tint = colorValue(element.image_tint) || 'transparent';
+    const raw = Number(element.image_tint_opacity);
+    const pct = Number.isInteger(raw) ? Math.max(0, Math.min(100, raw)) : 40;
+    declarations.push('--fpb-tint:' + tint, '--fpb-tint-opacity:' + (pct / 100));
+  }
+  const css = declarations.join(';');
   return wrap === false ? ';' + css : ' style="' + css + '"';
 }
 
@@ -235,9 +274,16 @@ function textStyle(element) {
   const size = textSize(element.size);
   const height = lineHeight(element.line_height);
   const weight = fontWeight(element.weight);
+  const family = fontFamily(element.font_family);
   if (size !== null) parts.push('font-size:' + size + 'px');
   if (height !== null) parts.push('line-height:' + height);
   if (weight !== null) parts.push('font-weight:' + weight);
+  if (family) parts.push('font-family:' + family);
+  const color = colorValue(element.color);
+  if (color) parts.push('color:' + color);
+  if (element.type === 'list' && ['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'].includes(element.marker_style)) {
+    parts.push('list-style-type:' + element.marker_style);
+  }
   textEffectsCss(element).forEach((part) => parts.push(part));
   if (element.type === 'button') {
     const box = boxCss(element);
@@ -262,14 +308,24 @@ function motionClass(element) {
 
 function wrapperStyle(element, media) {
   const parts = [];
+  const family = fontFamily(element.font_family);
+  if (family) parts.push('font-family:' + family);
+  if (Number.isInteger(element.text_width)) parts.push('width:min(100%,' + Math.max(120, Math.min(1600, element.text_width)) + 'px)');
+  if (['start', 'center', 'end'].includes(element.vertical_align)) parts.push('align-self:' + element.vertical_align);
+  const textColor = colorValue(element.color);
+  if (textColor) parts.push('color:' + textColor);
+  textEffectsCss(element).forEach((part) => parts.push(part));
   if (element.align === 'center' || element.align === 'right') parts.push('text-align:' + element.align);
   if (element.type !== 'button') {
     const box = boxCss(element, media);
     if (box) parts.push(box);
   }
   if (element.type === 'columns') {
-    const count = Math.max(1, Math.min(6, (element.children || []).length || Number(element.columns) || 2));
-    parts.push('grid-template-columns:repeat(' + count + ',minmax(0,1fr))');
+    const count = Math.max(1, Math.min(200, (element.children || []).length || Number(element.columns) || 2));
+    const widths = Array.isArray(element.column_widths) && element.column_widths.length === count
+      && element.column_widths.every((width) => Number.isFinite(Number(width)) && Number(width) >= 0.1 && Number(width) <= 99.9)
+      ? element.column_widths : null;
+    parts.push('grid-template-columns:' + (widths ? widths.map((width) => 'minmax(0,' + Number(width) + 'fr)').join(' ') : 'repeat(' + count + ',minmax(0,1fr))'));
   }
   if (['fade', 'fade-up', 'fade-down', 'fade-left', 'fade-right', 'zoom-in'].includes(element.animation)) {
     const duration = Math.max(100, Math.min(3000, Number(element.animation_duration) || 600));
@@ -298,7 +354,8 @@ function overrideRules(element, over) {
   if (!over || !element?.id) return '';
   const sel = '[data-fpb-id="' + escapeHtml(element.id) + '"]';
   const boxSel = element.type === 'button' ? sel + ' .fpb-button' : sel;
-  const textSel = sel + ' :is(h1,h2,h3,h4,h5,h6,p,a,ul,ol)';
+  const descendants = sel + ' :is(h1,h2,h3,h4,h5,h6,p,a,ul,ol)';
+  const textSel = element.type === 'html' || element.type === 'shortcode' ? sel + ',' + descendants : descendants;
   const rules = [];
   const box = [];
   const background = colorValue(over.background);
@@ -318,9 +375,13 @@ function overrideRules(element, over) {
   });
   if (box.length) rules.push(boxSel + '{' + box.join(';') + '}');
   const text = [];
+  const family = fontFamily(over.font_family);
   const size = textSize(over.size);
   const height = lineHeight(over.line_height);
   const weight = fontWeight(over.weight);
+  if (family) text.push('font-family:' + family + '!important');
+  const overColor = colorValue(over.color);
+  if (overColor) text.push('color:' + overColor + '!important');
   if (size !== null) text.push('font-size:' + size + 'px!important');
   if (height !== null) text.push('line-height:' + height + '!important');
   if (weight !== null) text.push('font-weight:' + weight + '!important');
@@ -335,11 +396,19 @@ function overrideRules(element, over) {
   }
   const spacing = signedPx(over.letter_spacing, 20);
   if (spacing !== null) text.push('letter-spacing:' + spacing + 'px!important');
+  const wordSpacing = signedPx(over.word_spacing, 40);
+  if (wordSpacing !== null) text.push('word-spacing:' + wordSpacing + 'px!important');
   if (over.text_transform === 'uppercase' || over.text_transform === 'lowercase' || over.text_transform === 'capitalize' || over.text_transform === 'none') {
     text.push('text-transform:' + over.text_transform + '!important');
   }
   if (over.italic === true) text.push('font-style:italic!important');
   else if (over.italic === false) text.push('font-style:normal!important');
+  if (['none', 'underline', 'line-through', 'overline'].includes(over.text_decoration)) text.push('text-decoration-line:' + over.text_decoration + '!important');
+  if (['solid', 'double', 'dotted', 'dashed', 'wavy'].includes(over.decoration_style)) text.push('text-decoration-style:' + over.decoration_style + '!important');
+  const decorationColor = colorValue(over.decoration_color);
+  if (decorationColor) text.push('text-decoration-color:' + decorationColor + '!important');
+  const decorationThickness = pxValue(over.decoration_thickness, 8);
+  if (decorationThickness !== null) text.push('text-decoration-thickness:' + decorationThickness + 'px!important');
   if (over.stroke_width != null || over.stroke_color != null) {
     const stroke = pxValue(over.stroke_width ?? element.stroke_width, 8);
     if (stroke) text.push('-webkit-text-stroke:' + stroke + 'px ' + (colorValue(over.stroke_color ?? element.stroke_color) || '#111827') + '!important');
@@ -349,9 +418,22 @@ function overrideRules(element, over) {
   if (over.align === 'center' || over.align === 'right' || over.align === 'left') {
     rules.push(sel + '{text-align:' + over.align + '!important}');
   }
+  if (Number.isInteger(over.text_width)) rules.push(sel + '{width:min(100%,' + Math.max(120, Math.min(1600, over.text_width)) + 'px)!important}');
+  if (['start', 'center', 'end'].includes(over.vertical_align)) rules.push(sel + '{align-self:' + over.vertical_align + '!important}');
+  const markerColor = colorValue(over.marker_color);
+  if (markerColor) rules.push(sel + ' li::marker{color:' + markerColor + '!important}');
+  if (Number.isInteger(over.list_spacing)) rules.push(sel + ' li+li{margin-block-start:' + Math.max(0, Math.min(64, over.list_spacing)) + 'px!important}');
+  if (['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'].includes(over.marker_style)) {
+    rules.push(sel + ' :is(ul,ol){list-style-type:' + over.marker_style + '!important}');
+  }
   if (Number.isInteger(over.height)) rules.push(sel + ' .fpb-spacer{height:' + Math.max(8, Math.min(160, over.height)) + 'px!important}');
-  if (Number.isInteger(over.columns) && over.columns >= 1 && over.columns <= 6) {
-    rules.push(sel + '{grid-template-columns:repeat(' + over.columns + ',minmax(0,1fr))!important}');
+  const columnCount = Number.isInteger(over.columns) && over.columns >= 1 && over.columns <= 200
+    ? over.columns : Math.max(1, Math.min(200, (element.children || []).length || Number(element.columns) || 2));
+  if ((Number.isInteger(over.columns) && over.columns >= 1 && over.columns <= 200) || Array.isArray(over.column_widths)) {
+    const widths = Array.isArray(over.column_widths) && over.column_widths.length === columnCount
+      && over.column_widths.every((width) => Number.isFinite(Number(width)) && Number(width) >= 0.1 && Number(width) <= 99.9)
+      ? over.column_widths : null;
+    rules.push(sel + '{grid-template-columns:' + (widths ? widths.map((width) => 'minmax(0,' + Number(width) + 'fr)').join(' ') : 'repeat(' + columnCount + ',minmax(0,1fr))') + '!important}');
   }
   if (over.hidden === true) rules.push(sel + '{opacity:.42!important;outline-color:#94a3b8!important}');
   else if (over.hidden === false) {
@@ -369,9 +451,10 @@ function overrideRules(element, over) {
     }) || 'transparent';
     rules.push(sel + '>.fpb-section-overlay{background:' + css + '!important}');
   }
-  if (over.image_filter != null) {
-    const filter = over.image_filter === 'grayscale' ? 'grayscale(1)' : 'none';
-    rules.push((element.type === 'section' ? sel + '>.fpb-section-wallpaper,' + sel + '>.fpb-section-wallpaper img' : sel + ' img') + '{filter:' + filter + '!important}');
+  if (['image_filter', 'image_brightness', 'image_contrast', 'image_saturation', 'image_blur'].some((key) => over[key] != null)) {
+    const filter = imageFilterCss({...element, ...over});
+    const target = element.type === 'section' ? sel + '>.fpb-section-wallpaper' : sel + ' .fpb-photo';
+    rules.push(target + '{--fpb-image-filter:' + filter + '!important}');
   }
   if (over.image_tint != null || over.image_tint_opacity != null) {
     const tint = colorValue(over.image_tint ?? element.image_tint) || 'transparent';
@@ -401,13 +484,25 @@ function hoverRules(element) {
 function collectDocumentCss(elements, hover, tablet, phone) {
   (elements || []).forEach((element) => {
     const h = hoverRules(element);
+    const list = listStyleRules(element);
     const t = overrideRules(element, element.tablet);
     const p = overrideRules(element, element.phone);
     if (h) hover.push(h);
+    if (list) hover.push(list);
     if (t) tablet.push(t);
     if (p) phone.push(p);
     if (element.children) collectDocumentCss(element.children, hover, tablet, phone);
   });
+}
+
+function listStyleRules(element) {
+  if (element?.type !== 'list' || !element.id) return '';
+  const sel = '[data-fpb-id="' + escapeHtml(element.id) + '"]';
+  const rules = [];
+  const color = colorValue(element.marker_color);
+  if (color) rules.push(sel + ' li::marker{color:' + color + '}');
+  if (Number.isInteger(element.list_spacing)) rules.push(sel + ' li+li{margin-block-start:' + Math.max(0, Math.min(64, element.list_spacing)) + 'px}');
+  return rules.join('');
 }
 
 function documentStyle(elements) {
@@ -443,8 +538,16 @@ function leafHtml(element, selected, media, pages) {
   } else if (element.type === 'paragraph') {
     inner = '<p' + textStyle(element) + ' contenteditable="plaintext-only">' + editableText(element.text, true) + '</p>';
   } else if (element.type === 'image') {
-    const url = media[element.media_id] || '';
-    inner = url ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '"></span>' : '<p class="fpb-empty">Изберете изображение</p>';
+    if (element.site_logo) {
+      const logos = media.site_logo || {};
+      const variant = element.site_logo_variant === 'dark' ? 'dark' : 'light';
+      const url = logos[variant] || logos[variant === 'dark' ? 'light' : 'dark'] || '';
+      const image = url ? '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '">' : '';
+      inner = image ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '>' + image + '</span>' : '<p class="fpb-empty">Няма зададено лого в настройките на темата</p>';
+    } else {
+      const url = media[element.media_id] || '';
+      inner = url ? '<span class="' + photoClass(element) + '"' + photoVars(element) + '><img src="' + escapeHtml(url) + '" alt="' + escapeHtml(element.alt) + '"></span>' : '<p class="fpb-empty">Изберете изображение</p>';
+    }
   } else if (element.type === 'button') {
     inner = '<a class="fpb-button" href="' + escapeHtml(buttonHref(element, pages)) + '"' + textStyle(element) + ' contenteditable="plaintext-only">' + editableText(element.text, false) + '</a>';
   } else if (element.type === 'list') {
@@ -454,6 +557,9 @@ function leafHtml(element, selected, media, pages) {
     inner = '<div class="fpb-spacer" style="height:' + Math.max(8, Math.min(160, Number(element.height) || 32)) + 'px"></div>';
   } else if (element.type === 'html') {
     inner = String(element.html || '');
+  } else if (element.type === 'shortcode') {
+    const shortcode = String(element.shortcode || '');
+    inner = '<div class="fpb-shortcode-preview" data-fpb-shortcode="' + escapeHtml(shortcode) + '">' + (shortcode ? escapeHtml(shortcode) : '<span class="fpb-muted">Въведете кратък код</span>') + '</div>';
   } else {
     inner = '<hr>';
   }
@@ -477,7 +583,11 @@ function columnsHtml(element, selected, media, pages) {
     const body = (column.children || []).length
       ? column.children.map((child) => leafHtml(child, selected, media, pages)).join('')
       : '<p class="fpb-empty">Пуснете елемент</p>';
-    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + hiddenClass(column) + motionClass(column) + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle() + '<div class="fpb-column-body">' + body + '</div></div>';
+    const index = cols.indexOf(column);
+    const resizeHandle = index < cols.length - 1
+      ? '<button class="fpb-column-resize" type="button" data-fpb-columns-id="' + escapeHtml(element.id) + '" data-fpb-boundary="' + index + '" aria-label="Промени ширината на колоните" title="Плъзнете, за да промените ширината на колоните"></button>'
+      : '';
+    return '<div class="fpb-column' + (column.id === selected ? ' is-selected' : '') + hiddenClass(column) + motionClass(column) + '" data-fpb-id="' + escapeHtml(column.id) + '" data-fpb-type="column"' + wrapperStyle(column, media) + '>' + dragHandle() + '<div class="fpb-column-body">' + body + '</div>' + resizeHandle + '</div>';
   }).join('');
   return '<div class="fpb-columns' + selectedClass + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="columns"' + wrapperStyle(element, media) + '>' + dragHandle() + cells + '</div>';
 }

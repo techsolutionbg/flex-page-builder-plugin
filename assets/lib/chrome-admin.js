@@ -76,7 +76,9 @@ export function createPage(host) {
       && (kindFilter === 'all' || item.kind === kindFilter));
 
     const columns = [
-      {key: 'name', label: 'Име', sortable: true, render: (row) => row.name || '—'},
+      {key: 'name', label: 'Име', sortable: true, render: (row) => viewFilter === 'active'
+        ? h('button', {type: 'button', className: 'react-table-link', onClick: () => navigate(chromeEditPath(row.id)), 'aria-label': 'Отвори builder-а за ' + (row.name || KIND_LABEL[row.kind])}, row.name || '—')
+        : row.name || '—'},
       {key: 'kind', label: 'Тип', sortable: true, render: (row) => KIND_LABEL[row.kind] || row.kind},
       {
         key: 'actions',

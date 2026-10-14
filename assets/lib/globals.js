@@ -31,7 +31,7 @@ export function createGlobalsPanel(host) {
         h('nav', {className: 'fpb-panel-crumbs', 'aria-label': 'Навигация в глобалните'},
           h('button', {type: 'button', onClick: () => onSelectType(null)}, 'Глобални'),
           h('span', {'aria-hidden': true}, '/'),
-          h('button', {type: 'button', onClick: () => { onSelectType('button'); onSelectStyle(null); }}, 'Бутон'),
+          h('button', {type: 'button', onClick: () => { onSelectType('button'); onSelectStyle(null); }}, 'Button'),
           h('span', {'aria-hidden': true}, '/'),
           h('button', {type: 'button', onClick: () => onSelectStyle(null)}, 'Дизайни'),
           h('span', {'aria-hidden': true}, '/'),

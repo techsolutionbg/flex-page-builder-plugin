@@ -7,15 +7,17 @@ namespace Flex\PageBuilder;
 /** Turns the builder document into the HTML stored on the page. */
 final class HtmlCompiler
 {
-    public const TYPES = ['section', 'columns', 'column', 'heading', 'paragraph', 'image', 'button', 'list', 'divider', 'spacer', 'html'];
+    public const TYPES = ['section', 'columns', 'column', 'heading', 'paragraph', 'image', 'button', 'list', 'divider', 'spacer', 'html', 'shortcode'];
 
     public const STYLE_KEYS = [
-        'size', 'line_height', 'weight', 'align', 'level', 'height', 'full_width', 'hidden',
+        'size', 'line_height', 'weight', 'font_family', 'align', 'text_width', 'vertical_align', 'level', 'height', 'full_width', 'hidden', 'column_widths',
         'background', 'gradient', 'gradient_from', 'gradient_to', 'gradient_angle',
-        'wallpaper_id', 'wallpaper_fit', 'wallpaper_position', 'wallpaper_preset', 'overlay_color', 'overlay_opacity', 'image_filter', 'image_tint', 'image_tint_opacity',
+        'wallpaper_id', 'wallpaper_fit', 'wallpaper_position', 'wallpaper_preset', 'overlay_color', 'overlay_opacity', 'image_filter', 'image_brightness', 'image_contrast', 'image_saturation', 'image_blur', 'image_tint', 'image_tint_opacity',
         'particles', 'particles_color', 'particles_density', 'particles_speed',
         'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color',
-        'letter_spacing', 'text_transform', 'italic',
+        'letter_spacing', 'word_spacing', 'text_transform', 'italic',
+        'text_decoration', 'decoration_style', 'decoration_color', 'decoration_thickness',
+        'marker_style', 'marker_color', 'list_spacing',
         'hover_background', 'hover_color', 'hover_border_color',
         'animation', 'animation_duration', 'animation_delay', 'hover_animation',
         'color', 'border_width', 'border_color', 'radius', 'padding',
@@ -37,12 +39,12 @@ final class HtmlCompiler
      * @param list<array<string, mixed>> $buttonStyles
      * @param 'header'|'footer'|null $chromeKind
      */
-    public function compile(array $elements, callable $mediaUrl, array $defaults = [], ?callable $pageUrl = null, array $buttonStyles = [], ?string $chromeKind = null): string
+    public function compile(array $elements, callable $mediaUrl, array $defaults = [], ?callable $pageUrl = null, array $buttonStyles = [], ?string $chromeKind = null, array $siteLogos = []): string
     {
         $html = '';
         $tree = $this->withDefaults($this->normalize($elements), $defaults, $buttonStyles);
         foreach ($tree as $element) {
-            $html .= $this->element($element, $mediaUrl, false, $pageUrl);
+            $html .= $this->element($element, $mediaUrl, false, $pageUrl, $siteLogos);
         }
         if ($html === '') {
             return '';
@@ -68,9 +70,12 @@ final class HtmlCompiler
             }
             $raw = $defaults[$type];
             $style = self::appearance($raw) + self::motion($raw);
-            if (in_array($type, ['heading', 'paragraph', 'button', 'list'], true)) {
+            if (in_array($type, ['heading', 'paragraph', 'button', 'list', 'html', 'shortcode'], true)) {
                 $style += self::typography($raw);
                 $style += self::textEffects($raw);
+            }
+            if ($type === 'list') {
+                $style += self::listStyle($raw);
             }
             if ($type === 'button') {
                 $style += self::hover($raw);
@@ -293,9 +298,9 @@ final class HtmlCompiler
     {
         $raw = is_array($element['children'] ?? null) ? array_values($element['children']) : [];
         $count = (int) ($element['columns'] ?? 0);
-        if ($count < 1 || $count > 6) {
+        if ($count < 1 || $count > 200) {
             $found = count($raw);
-            $count = $found >= 1 && $found <= 6 ? $found : 2;
+            $count = $found >= 1 && $found <= 200 ? $found : 2;
         }
         $cols = [];
         for ($index = 0; $index < $count; $index++) {
@@ -315,7 +320,7 @@ final class HtmlCompiler
             $cols[$count - 1]['children'] = array_merge(is_array($cols[$count - 1]['children'] ?? null) ? $cols[$count - 1]['children'] : [], $extra);
         }
 
-        return ['id' => $id, 'type' => 'columns', 'columns' => $count, 'children' => $this->nodes($cols, 'columns')] + self::appearance($element) + self::motion($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'columns');
+        return ['id' => $id, 'type' => 'columns', 'columns' => $count, 'column_widths' => self::columnWidths($element['column_widths'] ?? null, $count), 'children' => $this->nodes($cols, 'columns')] + self::appearance($element) + self::motion($element) + self::label($element) + self::visibility($element) + self::breakpoints($element, 'columns', $count);
     }
 
     /** @param array<string, mixed> $element @return array<string, mixed> */
@@ -335,7 +340,7 @@ final class HtmlCompiler
         if ($type === 'image') {
             $mediaId = filter_var($element['media_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
-            return ['type' => 'image', 'media_id' => is_int($mediaId) ? $mediaId : null, 'alt' => $text($element['alt'] ?? '', 190)] + self::appearance($element) + self::motion($element) + self::imageFilter($element) + self::imageTint($element);
+            return ['type' => 'image', 'media_id' => is_int($mediaId) ? $mediaId : null, 'site_logo' => ($element['site_logo'] ?? false) === true, 'site_logo_variant' => in_array($element['site_logo_variant'] ?? null, ['light', 'dark'], true) ? $element['site_logo_variant'] : 'light', 'alt' => $text($element['alt'] ?? '', 190)] + self::appearance($element) + self::motion($element) + self::imageFilter($element) + self::imageTint($element);
         }
         if ($type === 'button') {
             return ['type' => 'button', 'text' => $text($element['text'] ?? '', 80), 'button_style_id' => self::buttonStyleId($element['button_style_id'] ?? null)]
@@ -351,7 +356,7 @@ final class HtmlCompiler
                 }
             }
 
-            return ['type' => 'list', 'ordered' => ($element['ordered'] ?? false) === true, 'items' => $clean] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
+            return ['type' => 'list', 'ordered' => ($element['ordered'] ?? false) === true, 'items' => $clean] + self::typography($element) + self::textEffects($element) + self::listStyle($element) + self::appearance($element) + self::motion($element);
         }
         if ($type === 'divider') {
             return ['type' => 'divider'] + self::appearance($element) + self::motion($element);
@@ -361,19 +366,27 @@ final class HtmlCompiler
 
             return ['type' => 'spacer', 'height' => is_int($height) ? max(8, min(160, $height)) : null] + self::appearance($element) + self::motion($element);
         }
+        if ($type === 'shortcode') {
+            $shortcode = trim(mb_substr((string) ($element['shortcode'] ?? ''), 0, 1000));
+            if ($shortcode !== '' && preg_match('/^(?:\[[a-zA-Z][a-zA-Z0-9_-]*(?:\s[^\[\]<>]*)?\]\s*)+$/D', $shortcode) !== 1) {
+                throw new \InvalidArgumentException('Въведете валиден кратък код.', 422);
+            }
 
-        return ['type' => 'html', 'html' => mb_substr((string) ($element['html'] ?? ''), 0, 20000)] + self::appearance($element) + self::motion($element);
+            return ['type' => 'shortcode', 'shortcode' => $shortcode] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
+        }
+
+        return ['type' => 'html', 'html' => mb_substr((string) ($element['html'] ?? ''), 0, 20000)] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
     }
 
     /** @param array<string, mixed> $element */
     /** @param callable(int): string|null $pageUrl */
-    private function element(array $element, callable $mediaUrl, bool $insideSection = false, ?callable $pageUrl = null): string
+    private function element(array $element, callable $mediaUrl, bool $insideSection = false, ?callable $pageUrl = null, array $siteLogos = []): string
     {
         $id = htmlspecialchars((string) $element['id'], ENT_QUOTES, 'UTF-8');
         if ($element['type'] === 'section' || $element['type'] === 'columns' || $element['type'] === 'column') {
             $children = '';
             foreach ($element['children'] as $child) {
-                $children .= $this->element($child, $mediaUrl, $element['type'] === 'section' || $insideSection, $pageUrl);
+                $children .= $this->element($child, $mediaUrl, $element['type'] === 'section' || $insideSection, $pageUrl, $siteLogos);
             }
             $class = $element['type'] === 'section' ? 'fpb-section' : ($element['type'] === 'columns' ? 'fpb-columns' : 'fpb-column');
             if ($element['type'] === 'section' && ($element['full_width'] ?? false) === true) {
@@ -394,11 +407,14 @@ final class HtmlCompiler
         $inner = match ($element['type']) {
             'heading' => self::headingHtml($element),
             'paragraph' => '<p' . self::textStyle($element) . '>' . nl2br(self::escape((string) $element['text']), false) . '</p>',
-            'image' => $this->image($element, $mediaUrl),
+            'image' => $this->image($element, $mediaUrl, $siteLogos),
             'button' => '<a class="fpb-button" href="' . self::escape(self::buttonHref($element, $pageUrl)) . '"' . self::textStyle($element) . '>' . self::escape((string) $element['text']) . '</a>',
             'list' => $this->list($element),
             'divider' => '<hr>',
             'spacer' => '<div class="fpb-spacer" style="height:' . (is_int($element['height'] ?? null) ? $element['height'] : 32) . 'px"></div>',
+            // A shortcode is text at this point, but quotes and ampersands are part of its syntax.
+            // normalize() restricts it to bracket syntax without HTML tags before it is emitted.
+            'shortcode' => '<div class="fpb-shortcode">' . (string) ($element['shortcode'] ?? '') . '</div>',
             default => self::cleanHtml((string) $element['html']),
         };
         if ($inner === '') {
@@ -417,8 +433,21 @@ final class HtmlCompiler
     }
 
     /** @param array<string, mixed> $element */
-    private function image(array $element, callable $mediaUrl): string
+    private function image(array $element, callable $mediaUrl, array $siteLogos = []): string
     {
+        if (($element['site_logo'] ?? false) === true) {
+            $variant = ($element['site_logo_variant'] ?? 'light') === 'dark' ? 'dark' : 'light';
+            $url = is_string($siteLogos[$variant] ?? null) ? $siteLogos[$variant] : '';
+            $fallback = $variant === 'dark' ? 'light' : 'dark';
+            if ($url === '') {
+                $url = is_string($siteLogos[$fallback] ?? null) ? $siteLogos[$fallback] : '';
+            }
+            if ($url === '') {
+                return '';
+            }
+
+            return '<span class="' . self::photoClass($element) . '"' . self::photoVars($element) . '><img src="' . self::escape($url) . '" alt="' . self::escape((string) $element['alt']) . '"></span>';
+        }
         $mediaId = $element['media_id'];
         if (!is_int($mediaId)) {
             return '';
@@ -509,14 +538,42 @@ final class HtmlCompiler
         return max(8, min(160, $size));
     }
 
-    /** @param array<string, mixed> $element @return array{size: ?int, line_height: ?string, weight: ?int, align: ?string} */
+    /** @param array<string, mixed> $element @return array{size: ?int, line_height: ?string, weight: ?int, font_family: ?string, align: ?string} */
     private static function typography(array $element): array
     {
         return [
             'size' => self::textSize($element['size'] ?? null),
             'line_height' => self::lineHeight($element['line_height'] ?? null),
             'weight' => self::fontWeight($element['weight'] ?? null),
+            'font_family' => self::fontFamily($element['font_family'] ?? null),
             'align' => self::align($element['align'] ?? null),
+            'text_width' => self::textWidth($element['text_width'] ?? null),
+            'vertical_align' => in_array($element['vertical_align'] ?? null, ['start', 'center', 'end'], true) ? $element['vertical_align'] : null,
+        ];
+    }
+
+    private static function textWidth(mixed $value): ?int
+    {
+        $width = filter_var($value, FILTER_VALIDATE_INT);
+        return is_int($width) && $width > 0 ? min(1600, max(120, $width)) : null;
+    }
+
+    private static function fontFamily(mixed $value): ?string
+    {
+        return in_array($value, ['system', 'arial', 'georgia', 'trebuchet', 'verdana', 'monospace'], true)
+            ? $value
+            : null;
+    }
+
+    /** @param array<string, mixed> $element @return array{marker_style: ?string, marker_color: ?string, list_spacing: ?int} */
+    private static function listStyle(array $element): array
+    {
+        $marker = $element['marker_style'] ?? null;
+
+        return [
+            'marker_style' => in_array($marker, ['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'], true) ? $marker : null,
+            'marker_color' => self::color($element['marker_color'] ?? null),
+            'list_spacing' => self::px($element['list_spacing'] ?? null, 64),
         ];
     }
 
@@ -537,11 +594,23 @@ final class HtmlCompiler
             'stroke_width' => self::px($element['stroke_width'] ?? null, 8),
             'stroke_color' => self::color($element['stroke_color'] ?? null),
             'letter_spacing' => self::signedPx($element['letter_spacing'] ?? null, 20),
+            'word_spacing' => self::signedPx($element['word_spacing'] ?? null, 40),
             'text_transform' => in_array($transform, ['uppercase', 'lowercase', 'capitalize'], true)
                 ? $transform
                 : ($breakpoint && $transform === 'none' ? 'none' : null),
             'italic' => $italic === true ? true : ($breakpoint && $italic === false ? false : null),
+            'text_decoration' => self::textDecoration($element['text_decoration'] ?? null),
+            'decoration_style' => in_array($element['decoration_style'] ?? null, ['solid', 'double', 'dotted', 'dashed', 'wavy'], true) ? $element['decoration_style'] : null,
+            'decoration_color' => self::color($element['decoration_color'] ?? null),
+            'decoration_thickness' => self::px($element['decoration_thickness'] ?? null, 8),
         ];
+    }
+
+    private static function textDecoration(mixed $value): ?string
+    {
+        return in_array($value, ['none', 'underline', 'line-through', 'overline'], true)
+            ? $value
+            : null;
     }
 
     /**
@@ -558,6 +627,9 @@ final class HtmlCompiler
         if (is_int($element['letter_spacing'] ?? null)) {
             $parts[] = 'letter-spacing:' . $element['letter_spacing'] . 'px';
         }
+        if (is_int($element['word_spacing'] ?? null)) {
+            $parts[] = 'word-spacing:' . $element['word_spacing'] . 'px';
+        }
         $transform = $element['text_transform'] ?? null;
         if (in_array($transform, ['uppercase', 'lowercase', 'capitalize', 'none'], true)) {
             $parts[] = 'text-transform:' . $transform;
@@ -566,6 +638,20 @@ final class HtmlCompiler
             $parts[] = 'font-style:italic';
         } elseif (($element['italic'] ?? null) === false) {
             $parts[] = 'font-style:normal';
+        }
+        $decoration = self::textDecoration($element['text_decoration'] ?? null);
+        if ($decoration !== null) {
+            $parts[] = 'text-decoration-line:' . $decoration;
+        }
+        if (in_array($element['decoration_style'] ?? null, ['solid', 'double', 'dotted', 'dashed', 'wavy'], true)) {
+            $parts[] = 'text-decoration-style:' . $element['decoration_style'];
+        }
+        $decorationColor = self::color($element['decoration_color'] ?? null);
+        if ($decorationColor !== null) {
+            $parts[] = 'text-decoration-color:' . $decorationColor;
+        }
+        if (is_int($element['decoration_thickness'] ?? null)) {
+            $parts[] = 'text-decoration-thickness:' . $element['decoration_thickness'] . 'px';
         }
         $stroke = is_int($element['stroke_width'] ?? null) ? $element['stroke_width'] : null;
         if ($stroke !== null && $stroke > 0) {
@@ -615,6 +701,23 @@ final class HtmlCompiler
         }
         if (is_int($element['weight'] ?? null)) {
             $parts[] = 'font-weight:' . $element['weight'];
+        }
+        $family = self::fontFamilyCss($element['font_family'] ?? null);
+        if ($family !== null) {
+            $parts[] = 'font-family:' . $family;
+        }
+        if (is_int($element['text_width'] ?? null)) {
+            $parts[] = 'width:min(100%,' . min(1600, max(120, $element['text_width'])) . 'px)';
+        }
+        if (in_array($element['vertical_align'] ?? null, ['start', 'center', 'end'], true)) {
+            $parts[] = 'align-self:' . $element['vertical_align'];
+        }
+        $color = self::color($element['color'] ?? null);
+        if ($color !== null) {
+            $parts[] = 'color:' . $color;
+        }
+        if (($element['type'] ?? '') === 'list' && in_array($element['marker_style'] ?? null, ['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'], true)) {
+            $parts[] = 'list-style-type:' . $element['marker_style'];
         }
         foreach (self::textEffectsCss($element) as $part) {
             $parts[] = $part;
@@ -671,6 +774,24 @@ final class HtmlCompiler
     }
 
     /** @param array<string, mixed> $element */
+    private static function listStyleRules(string $id, array $element): string
+    {
+        if (($element['type'] ?? '') !== 'list') {
+            return '';
+        }
+        $selector = '[data-fpb-id="' . htmlspecialchars($id, ENT_QUOTES, 'UTF-8') . '"]';
+        $rules = [];
+        $color = self::color($element['marker_color'] ?? null);
+        if ($color !== null) {
+            $rules[] = $selector . ' li::marker{color:' . $color . '}';
+        }
+        if (is_int($element['list_spacing'] ?? null)) {
+            $rules[] = $selector . ' li+li{margin-block-start:' . max(0, min(64, $element['list_spacing'])) . 'px}';
+        }
+
+        return implode('', $rules);
+    }
+
     private static function hoverRules(string $id, array $element): string
     {
         if (($element['type'] ?? '') !== 'button') {
@@ -785,6 +906,17 @@ final class HtmlCompiler
     private static function wrapperStyle(array $element, ?int $columns = null): string
     {
         $parts = [];
+        $family = self::fontFamilyCss($element['font_family'] ?? null);
+        if ($family !== null) {
+            $parts[] = 'font-family:' . $family;
+        }
+        $color = self::color($element['color'] ?? null);
+        if ($color !== null) {
+            $parts[] = 'color:' . $color;
+        }
+        foreach (self::textEffectsCss($element) as $effect) {
+            $parts[] = $effect;
+        }
         if (($element['align'] ?? null) === 'center' || ($element['align'] ?? null) === 'right') {
             $parts[] = 'text-align:' . $element['align'];
         }
@@ -795,7 +927,10 @@ final class HtmlCompiler
             }
         }
         if (is_int($columns) && $columns >= 1) {
-            $parts[] = 'grid-template-columns:repeat(' . $columns . ',minmax(0,1fr))';
+            $widths = self::columnWidths($element['column_widths'] ?? null, $columns);
+            $parts[] = 'grid-template-columns:' . ($widths === null
+                ? 'repeat(' . $columns . ',minmax(0,1fr))'
+                : implode(' ', array_map(self::columnTrack(...), $widths)));
         }
         if (is_string($element['animation'] ?? null) && in_array($element['animation'], self::ENTRANCE_ANIMATIONS, true)) {
             $duration = is_int($element['animation_duration'] ?? null) ? $element['animation_duration'] : 600;
@@ -805,6 +940,19 @@ final class HtmlCompiler
         }
 
         return $parts === [] ? '' : ' style="' . implode(';', $parts) . '"';
+    }
+
+    private static function fontFamilyCss(mixed $value): ?string
+    {
+        return match ($value) {
+            'system' => 'system-ui,sans-serif',
+            'arial' => 'Arial,Helvetica,sans-serif',
+            'georgia' => 'Georgia,serif',
+            'trebuchet' => "'Trebuchet MS',sans-serif",
+            'verdana' => 'Verdana,Geneva,sans-serif',
+            'monospace' => 'ui-monospace,SFMono-Regular,Consolas,monospace',
+            default => null,
+        };
     }
 
     private const GRADIENTS = [
@@ -911,19 +1059,27 @@ final class HtmlCompiler
 
     /**
      * @param array<string, mixed> $element
-     * @return array{image_filter: ?string}
+     * @return array{image_filter: ?string, image_brightness: ?float, image_contrast: ?float, image_saturation: ?float, image_blur: ?float}
      */
     private static function imageFilter(array $element, bool $breakpoint = false): array
     {
         $value = $element['image_filter'] ?? null;
-        if ($value === 'grayscale') {
-            return ['image_filter' => 'grayscale'];
+        $normalized = [];
+        if (!$breakpoint || array_key_exists('image_filter', $element)) {
+            $normalized['image_filter'] = $value === 'grayscale' ? 'grayscale' : (($breakpoint && $value === 'color') ? 'color' : null);
         }
-        if ($breakpoint && $value === 'color') {
-            return ['image_filter' => 'color'];
+        foreach ([
+            ['image_brightness', 200],
+            ['image_contrast', 200],
+            ['image_saturation', 300],
+            ['image_blur', 20],
+        ] as [$key, $max]) {
+            if (!$breakpoint || array_key_exists($key, $element)) {
+                $normalized[$key] = self::boundedNumber($element[$key] ?? null, $max);
+            }
         }
 
-        return ['image_filter' => null];
+        return $normalized;
     }
 
     /**
@@ -970,15 +1126,56 @@ final class HtmlCompiler
     /** @param array<string, mixed> $element */
     private static function photoVars(array $element, bool $wrap = true): string
     {
-        if (!self::hasTint($element)) {
-            return '';
+        $declarations = ['--fpb-image-filter:' . self::photoFilterCss($element)];
+        if (self::hasTint($element)) {
+            $tint = self::color($element['image_tint'] ?? null) ?? 'transparent';
+            $pct = self::overlayOpacity($element['image_tint_opacity'] ?? null) ?? 40;
+            $alpha = rtrim(rtrim(number_format($pct / 100, 2, '.', ''), '0'), '.');
+            $declarations[] = '--fpb-tint:' . $tint;
+            $declarations[] = '--fpb-tint-opacity:' . ($alpha === '' ? '0' : $alpha);
         }
-        $tint = self::color($element['image_tint'] ?? null) ?? 'transparent';
-        $pct = self::overlayOpacity($element['image_tint_opacity'] ?? null) ?? 40;
-        $alpha = rtrim(rtrim(number_format($pct / 100, 2, '.', ''), '0'), '.');
-        $css = '--fpb-tint:' . $tint . ';--fpb-tint-opacity:' . ($alpha === '' ? '0' : $alpha);
+        $css = implode(';', $declarations);
 
-        return $wrap ? ' style="' . $css . '"' : $css;
+        return $wrap ? ' style="' . $css . '"' : ';' . $css;
+    }
+
+    /** @param array<string, mixed> $element */
+    private static function photoFilterCss(array $element): string
+    {
+        $filters = [];
+        if (($element['image_filter'] ?? null) === 'grayscale') {
+            $filters[] = 'grayscale(1)';
+        }
+        foreach ([
+            ['image_brightness', 200, '%', 'brightness'],
+            ['image_contrast', 200, '%', 'contrast'],
+            ['image_saturation', 300, '%', 'saturate'],
+        ] as [$key, $max, $suffix, $name]) {
+            $value = self::boundedNumber($element[$key] ?? null, $max);
+            if ($value !== null) {
+                $filters[] = $name . '(' . self::cssNumber($value) . $suffix . ')';
+            }
+        }
+        $blur = self::boundedNumber($element['image_blur'] ?? null, 20);
+        if ($blur !== null) {
+            $filters[] = 'blur(' . self::cssNumber($blur) . 'px)';
+        }
+
+        return $filters === [] ? 'none' : implode(' ', $filters);
+    }
+
+    private static function boundedNumber(mixed $value, float $max): ?float
+    {
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        return max(0, min($max, (float) $value));
+    }
+
+    private static function cssNumber(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     }
 
     /**
@@ -1204,6 +1401,43 @@ final class HtmlCompiler
         return in_array($weight, [300, 400, 500, 600, 700, 800], true) ? $weight : null;
     }
 
+    /** @return list<float>|null */
+    private static function columnWidths(mixed $value, int $count): ?array
+    {
+        if (!is_array($value) || !array_is_list($value) || $count < 1 || count($value) !== $count) {
+            return null;
+        }
+        $widths = [];
+        foreach ($value as $width) {
+            if (!is_numeric($width) || (float) $width < 0.1 || (float) $width > 99.9) {
+                return null;
+            }
+            $widths[] = (float) $width;
+        }
+        $sum = array_sum($widths);
+        if ($sum <= 0) {
+            return null;
+        }
+        $normalized = [];
+        foreach ($widths as $index => $width) {
+            $normalized[] = $index === count($widths) - 1
+                ? round(100 - array_sum($normalized), 1)
+                : round($width / $sum * 100, 1);
+        }
+
+        return $normalized;
+    }
+
+    private static function columnTrack(float $width): string
+    {
+        $number = number_format($width, 1, '.', '');
+        if (str_ends_with($number, '.0')) {
+            $number = substr($number, 0, -2);
+        }
+
+        return 'minmax(0,' . $number . 'fr)';
+    }
+
     private static function align(mixed $value): ?string
     {
         return $value === 'center' || $value === 'right' ? $value : null;
@@ -1219,18 +1453,21 @@ final class HtmlCompiler
      * @param array<string, mixed> $element
      * @return array<string, array<string, mixed>>
      */
-    private static function breakpoints(array $element, string $type): array
+    private static function breakpoints(array $element, string $type, ?int $columnCount = null): array
     {
         $out = [];
         foreach (['tablet', 'phone'] as $device) {
             $raw = is_array($element[$device] ?? null) ? $element[$device] : [];
             $style = self::appearance($raw) + self::motion($raw);
-            if (in_array($type, ['heading', 'paragraph', 'button', 'list'], true)) {
+            if (in_array($type, ['heading', 'paragraph', 'button', 'list', 'html', 'shortcode'], true)) {
                 $style += self::typography($raw);
                 $style += self::textEffects($raw, true);
                 if (($raw['align'] ?? null) === 'left') {
                     $style['align'] = 'left';
                 }
+            }
+            if ($type === 'list') {
+                $style += self::listStyle($raw);
             }
             if ($type === 'section') {
                 $style['full_width'] = ($raw['full_width'] ?? null) === true ? true : (($raw['full_width'] ?? null) === false ? false : null);
@@ -1248,7 +1485,9 @@ final class HtmlCompiler
             }
             if ($type === 'columns') {
                 $count = filter_var($raw['columns'] ?? null, FILTER_VALIDATE_INT);
-                $style['columns'] = is_int($count) && $count >= 1 && $count <= 6 ? $count : null;
+                $style['columns'] = is_int($count) && $count >= 1 && $count <= 200 ? $count : null;
+                $effectiveCount = $style['columns'] ?? $columnCount ?? 0;
+                $style['column_widths'] = self::columnWidths($raw['column_widths'] ?? null, $effectiveCount);
             }
             if (($raw['hidden'] ?? null) === true) {
                 $style['hidden'] = true;
@@ -1302,6 +1541,10 @@ final class HtmlCompiler
                 if ($hoverRule !== '') {
                     $hover[] = $hoverRule;
                 }
+                $listRule = self::listStyleRules($id, $element);
+                if ($listRule !== '') {
+                    $hover[] = $listRule;
+                }
                 $tabletRule = self::overrideRules($id, $element, is_array($element['tablet'] ?? null) ? $element['tablet'] : []);
                 $phoneRule = self::overrideRules($id, $element, is_array($element['phone'] ?? null) ? $element['phone'] : []);
                 if ($tabletRule !== '') {
@@ -1329,7 +1572,8 @@ final class HtmlCompiler
         $sel = '[data-fpb-id="' . htmlspecialchars($id, ENT_QUOTES, 'UTF-8') . '"]';
         $type = $element['type'] ?? '';
         $boxSel = $type === 'button' ? $sel . ' .fpb-button' : $sel;
-        $textSel = $sel . ' :is(h1,h2,h3,h4,h5,h6,p,a,ul,ol)';
+        $textDescendants = $sel . ' :is(h1,h2,h3,h4,h5,h6,p,a,ul,ol)';
+        $textSel = in_array($type, ['html', 'shortcode'], true) ? $sel . ',' . $textDescendants : $textDescendants;
         $rules = [];
         $box = [];
         if (is_string($over['background'] ?? null)) {
@@ -1365,6 +1609,10 @@ final class HtmlCompiler
         if (is_int($over['weight'] ?? null)) {
             $text[] = 'font-weight:' . $over['weight'] . '!important';
         }
+        $family = self::fontFamilyCss($over['font_family'] ?? null);
+        if ($family !== null) {
+            $text[] = 'font-family:' . $family . '!important';
+        }
         if (array_key_exists('shadow_color', $over) || array_key_exists('shadow_x', $over) || array_key_exists('shadow_y', $over) || array_key_exists('shadow_blur', $over)) {
             $shadow = self::textShadowCss([
                 'shadow_color' => $over['shadow_color'] ?? $element['shadow_color'] ?? null,
@@ -1377,6 +1625,9 @@ final class HtmlCompiler
         if (is_int($over['letter_spacing'] ?? null)) {
             $text[] = 'letter-spacing:' . $over['letter_spacing'] . 'px!important';
         }
+        if (is_int($over['word_spacing'] ?? null)) {
+            $text[] = 'word-spacing:' . $over['word_spacing'] . 'px!important';
+        }
         if (in_array($over['text_transform'] ?? null, ['uppercase', 'lowercase', 'capitalize', 'none'], true)) {
             $text[] = 'text-transform:' . $over['text_transform'] . '!important';
         }
@@ -1384,6 +1635,23 @@ final class HtmlCompiler
             $text[] = 'font-style:italic!important';
         } elseif (($over['italic'] ?? null) === false) {
             $text[] = 'font-style:normal!important';
+        }
+        $textColor = self::color($over['color'] ?? null);
+        if ($textColor !== null) {
+            $text[] = 'color:' . $textColor . '!important';
+        }
+        if (in_array($over['text_decoration'] ?? null, ['none', 'underline', 'line-through', 'overline'], true)) {
+            $text[] = 'text-decoration-line:' . $over['text_decoration'] . '!important';
+        }
+        if (in_array($over['decoration_style'] ?? null, ['solid', 'double', 'dotted', 'dashed', 'wavy'], true)) {
+            $text[] = 'text-decoration-style:' . $over['decoration_style'] . '!important';
+        }
+        $decorationColor = self::color($over['decoration_color'] ?? null);
+        if ($decorationColor !== null) {
+            $text[] = 'text-decoration-color:' . $decorationColor . '!important';
+        }
+        if (is_int($over['decoration_thickness'] ?? null)) {
+            $text[] = 'text-decoration-thickness:' . $over['decoration_thickness'] . 'px!important';
         }
         if (array_key_exists('stroke_width', $over) || array_key_exists('stroke_color', $over)) {
             $stroke = is_int($over['stroke_width'] ?? $element['stroke_width'] ?? null) ? ($over['stroke_width'] ?? $element['stroke_width']) : 0;
@@ -1399,11 +1667,34 @@ final class HtmlCompiler
         if (($over['align'] ?? null) === 'center' || ($over['align'] ?? null) === 'right' || ($over['align'] ?? null) === 'left') {
             $rules[] = $sel . '{text-align:' . $over['align'] . '!important}';
         }
+        if (is_int($over['text_width'] ?? null) && $over['text_width'] > 0) {
+            $rules[] = $sel . '{width:min(100%,' . min(1600, max(120, $over['text_width'])) . 'px)!important}';
+        }
+        if (in_array($over['vertical_align'] ?? null, ['start', 'center', 'end'], true)) {
+            $rules[] = $sel . '{align-self:' . $over['vertical_align'] . '!important}';
+        }
+        $markerColor = self::color($over['marker_color'] ?? null);
+        if ($markerColor !== null) {
+            $rules[] = $sel . ' li::marker{color:' . $markerColor . '!important}';
+        }
+        if (is_int($over['list_spacing'] ?? null)) {
+            $rules[] = $sel . ' li+li{margin-block-start:' . max(0, min(64, $over['list_spacing'])) . 'px!important}';
+        }
+        if (in_array($over['marker_style'] ?? null, ['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'], true)) {
+            $rules[] = $sel . ' :is(ul,ol){list-style-type:' . $over['marker_style'] . '!important}';
+        }
         if (is_int($over['height'] ?? null)) {
             $rules[] = $sel . ' .fpb-spacer{height:' . $over['height'] . 'px!important}';
         }
-        if (is_int($over['columns'] ?? null)) {
-            $rules[] = $sel . '{grid-template-columns:repeat(' . $over['columns'] . ',minmax(0,1fr))!important}';
+        $columnCount = is_int($over['columns'] ?? null) && $over['columns'] >= 1 && $over['columns'] <= 200
+            ? $over['columns']
+            : max(1, min(200, count(is_array($element['children'] ?? null) ? $element['children'] : []) ?: (int) ($element['columns'] ?? 2)));
+        if ((is_int($over['columns'] ?? null) && $over['columns'] >= 1 && $over['columns'] <= 200) || is_array($over['column_widths'] ?? null)) {
+            $widths = self::columnWidths($over['column_widths'] ?? null, $columnCount);
+            $grid = $widths === null
+                ? 'repeat(' . $columnCount . ',minmax(0,1fr))'
+                : implode(' ', array_map(self::columnTrack(...), $widths));
+            $rules[] = $sel . '{grid-template-columns:' . $grid . '!important}';
         }
         if (($over['hidden'] ?? null) === true) {
             $rules[] = $sel . '{display:none!important}';
@@ -1425,13 +1716,11 @@ final class HtmlCompiler
             ]) ?? 'transparent';
             $rules[] = $sel . '>.fpb-section-overlay{background:' . $css . '!important}';
         }
-        if (array_key_exists('image_filter', $over)) {
-            $filter = ($over['image_filter'] ?? null) === 'grayscale' ? 'grayscale(1)' : 'none';
-            if ($type === 'section') {
-                $rules[] = $sel . '>.fpb-section-wallpaper,' . $sel . '>.fpb-section-wallpaper img{filter:' . $filter . '!important}';
-            } else {
-                $rules[] = $sel . ' img{filter:' . $filter . '!important}';
-            }
+        $imageFilterKeys = ['image_filter', 'image_brightness', 'image_contrast', 'image_saturation', 'image_blur'];
+        if (array_intersect($imageFilterKeys, array_keys(array_filter($over, static fn ($value) => $value !== null))) !== []) {
+            $filter = self::photoFilterCss(array_merge($element, $over));
+            $target = $type === 'section' ? $sel . '>.fpb-section-wallpaper' : $sel . ' .fpb-photo';
+            $rules[] = $target . '{--fpb-image-filter:' . $filter . '!important}';
         }
         if (array_key_exists('image_tint', $over) || array_key_exists('image_tint_opacity', $over)) {
             $tint = self::color($over['image_tint'] ?? $element['image_tint'] ?? null) ?? 'transparent';

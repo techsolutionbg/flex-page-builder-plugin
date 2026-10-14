@@ -1,33 +1,36 @@
 export const PALETTE_GROUPS = [
-  {id: 'layout', label: 'Структура', items: [
-    {type: 'section', label: 'Секция'},
-    {type: 'columns', label: 'Колони'},
+  {id: 'layout', label: 'Layout', items: [
+    {type: 'section', label: 'Section'},
+    {type: 'columns', label: 'Columns'},
   ]},
-  {id: 'content', label: 'Съдържание', items: [
-    {type: 'heading', label: 'Заглавие'},
-    {type: 'paragraph', label: 'Параграф'},
-    {type: 'list', label: 'Списък'},
-    {type: 'image', label: 'Изображение'},
-    {type: 'button', label: 'Бутон'},
+  {id: 'content', label: 'Content', items: [
+    {type: 'heading', label: 'Heading'},
+    {type: 'paragraph', label: 'Paragraph'},
+    {type: 'list', label: 'List'},
+    {type: 'image', label: 'Image'},
+    {type: 'button', label: 'Button'},
   ]},
-  {id: 'spacing', label: 'Оформление', items: [
-    {type: 'divider', label: 'Разделител'},
-    {type: 'spacer', label: 'Отстъп'},
+  {id: 'spacing', label: 'Spacing', items: [
+    {type: 'divider', label: 'Divider'},
+    {type: 'spacer', label: 'Spacer'},
   ]},
-  {id: 'advanced', label: 'Други', items: [
-    {type: 'html', label: 'HTML'},
+  {id: 'advanced', label: 'Advanced', items: [
+    {type: 'shortcode', label: 'Shortcode'},
+    {type: 'html', label: 'Custom HTML'},
   ]},
 ];
 
 export const PALETTE = PALETTE_GROUPS.flatMap((group) => group.items);
 
 export const STYLE_KEYS = [
-  'size', 'line_height', 'weight', 'align', 'level', 'height', 'full_width', 'hidden',
+  'size', 'line_height', 'weight', 'font_family', 'align', 'text_width', 'vertical_align', 'level', 'height', 'full_width', 'hidden', 'column_widths',
   'background', 'gradient', 'gradient_from', 'gradient_to', 'gradient_angle',
-  'wallpaper_id', 'wallpaper_fit', 'wallpaper_position', 'wallpaper_preset', 'overlay_color', 'overlay_opacity', 'image_filter', 'image_tint', 'image_tint_opacity',
+  'wallpaper_id', 'wallpaper_fit', 'wallpaper_position', 'wallpaper_preset', 'overlay_color', 'overlay_opacity', 'image_filter', 'image_brightness', 'image_contrast', 'image_saturation', 'image_blur', 'image_tint', 'image_tint_opacity',
   'particles', 'particles_color', 'particles_density', 'particles_speed',
   'shadow_color', 'shadow_x', 'shadow_y', 'shadow_blur', 'stroke_width', 'stroke_color',
-  'letter_spacing', 'text_transform', 'italic',
+  'letter_spacing', 'word_spacing', 'text_transform', 'italic',
+  'text_decoration', 'decoration_style', 'decoration_color', 'decoration_thickness',
+  'marker_style', 'marker_color', 'list_spacing',
   'hover_background', 'hover_color', 'hover_border_color',
   'animation', 'animation_duration', 'animation_delay', 'hover_animation',
   'color', 'border_width', 'border_color', 'radius', 'padding',
@@ -196,18 +199,83 @@ export function emptyColumns(count) {
 }
 
 export function resizeColumns(element, count) {
-  const size = Math.max(1, Math.min(6, Number(count) || 2));
+  const size = Math.max(1, Math.min(200, Number(count) || 2));
   const cols = (element.children || []).filter((child) => child.type === 'column');
+  const adjustWidths = (values, from, to) => {
+    if (!Array.isArray(values) || values.length !== from || !values.every((value) => Number.isFinite(Number(value)) && Number(value) > 0)) return null;
+    const next = values.map(Number);
+    while (next.length < to) {
+      const index = next.length - 1;
+      if (index < 0) return null;
+      const first = Math.round(next[index] / 2 * 10) / 10;
+      next.splice(index, 1, first, Math.round((next[index] - first) * 10) / 10);
+    }
+    while (next.length > to) {
+      const removed = next.pop();
+      if (next.length) next[next.length - 1] = Math.round((next[next.length - 1] + removed) * 10) / 10;
+    }
+    return to > 1 ? next : null;
+  };
+  const oldCount = cols.length;
+  let children = cols;
   if (cols.length < size) {
-    return {...element, columns: size, children: cols.concat(emptyColumns(size - cols.length))};
-  }
-  if (cols.length > size) {
+    children = cols.concat(emptyColumns(size - cols.length));
+  } else if (cols.length > size) {
     const keep = cols.slice(0, size).map((col, index) => index === size - 1
       ? {...col, children: (col.children || []).concat(...cols.slice(size).map((extra) => extra.children || []))}
       : col);
-    return {...element, columns: size, children: keep};
+    children = keep;
   }
-  return {...element, columns: size, children: cols};
+  const updated = {...element, columns: size, children};
+  if (Array.isArray(element.column_widths)) updated.column_widths = adjustWidths(element.column_widths, oldCount, size);
+  ['tablet', 'phone'].forEach((device) => {
+    const responsive = element[device];
+    if (!responsive || responsive.columns != null || !Array.isArray(responsive.column_widths)) return;
+    updated[device] = {...responsive, column_widths: adjustWidths(responsive.column_widths, oldCount, size)};
+  });
+  return updated;
+}
+
+export function insertColumnBeside(elements, columnId, side) {
+  let insertedId = null;
+  const splitWidths = (values, count, index) => {
+    if (!Array.isArray(values) || values.length !== count || !values.every((value) => Number.isFinite(Number(value)) && Number(value) > 0)) return null;
+    const width = Number(values[index]);
+    const first = Math.round(width / 2 * 10) / 10;
+    const second = Math.round((width - first) * 10) / 10;
+    const result = [...values];
+    result.splice(index, 1, first, second);
+    return result;
+  };
+  const visit = (nodes) => (nodes || []).map((node) => {
+    if (node.type === 'columns') {
+      const columns = node.children || [];
+      const index = columns.findIndex((column) => column.id === columnId && column.type === 'column');
+      if (index >= 0 && columns.length < 200) {
+        const newColumn = emptyColumns(1)[0];
+        insertedId = newColumn.id;
+        const insertAt = index + (side === 'right' ? 1 : 0);
+        const children = [...columns];
+        children.splice(insertAt, 0, newColumn);
+        const updated = {...node, columns: children.length, children};
+        const baseWidths = splitWidths(node.column_widths, columns.length, index);
+        if (baseWidths) updated.column_widths = baseWidths;
+        else if (Array.isArray(node.column_widths)) updated.column_widths = null;
+        ['tablet', 'phone'].forEach((device) => {
+          const responsive = node[device];
+          if (!responsive || responsive.columns != null || !Array.isArray(responsive.column_widths)) return;
+          const responsiveWidths = splitWidths(responsive.column_widths, columns.length, index);
+          if (responsiveWidths) updated[device] = {...responsive, column_widths: responsiveWidths};
+          else updated[device] = {...responsive, column_widths: null};
+        });
+        return updated;
+      }
+    }
+    if (Array.isArray(node.children) && node.children.length) return {...node, children: visit(node.children)};
+    return node;
+  });
+  const next = visit(elements);
+  return insertedId ? {elements: next, columnId: insertedId} : {elements, columnId: null};
 }
 
 export function blank(type) {
@@ -216,21 +284,22 @@ export function blank(type) {
   if (type === 'columns') return {id, type, columns: 2, children: emptyColumns(2)};
   if (type === 'heading') return {id, type, text: 'Заглавие'};
   if (type === 'paragraph') return {id, type, text: 'Текст на параграфа'};
-  if (type === 'image') return {id, type, media_id: null, alt: ''};
+  if (type === 'image') return {id, type, media_id: null, site_logo: false, alt: ''};
   if (type === 'button') return {id, type, text: 'Научете повече', link_type: 'url', page_id: null, url: '/'};
   if (type === 'list') return {id, type, ordered: false, items: ['Първи ред', 'Втори ред']};
   if (type === 'spacer') return {id, type};
   if (type === 'html') return {id, type, html: '<p>HTML</p>'};
+  if (type === 'shortcode') return {id, type, shortcode: ''};
   return {id, type: 'divider'};
 }
 
 export function elementLabel(element, index) {
   const custom = String(element.name || '').replace(/\s+/g, ' ').trim();
   if (custom) return custom.slice(0, 60);
-  if (element.type === 'column') return 'Колона ' + ((index || 0) + 1);
-  if (element.type === 'columns') return 'Колони: ' + (element.children || []).length;
-  if (element.type === 'section' && element.full_width) return 'Секция: цяла ширина';
-  const name = PALETTE.find((item) => item.type === element.type)?.label || 'Елемент';
+  if (element.type === 'column') return 'Column ' + ((index || 0) + 1);
+  if (element.type === 'columns') return 'Columns: ' + (element.children || []).length;
+  if (element.type === 'section' && element.full_width) return 'Section: Full Width';
+  const name = PALETTE.find((item) => item.type === element.type)?.label || 'Element';
   const text = element.type === 'heading' || element.type === 'paragraph' || element.type === 'button' ? String(element.text || '').replace(/\s+/g, ' ').trim() : '';
   return text ? name + ': ' + text.slice(0, 42) : name;
 }
@@ -241,10 +310,10 @@ export function crumbName(element, trail) {
   if (element.type === 'column') {
     const parent = trail[trail.indexOf(element) - 1];
     const index = (parent?.children || []).findIndex((child) => child.id === element.id);
-    return 'Колона ' + (index < 0 ? 1 : index + 1);
+    return 'Column ' + (index < 0 ? 1 : index + 1);
   }
-  if (element.type === 'columns') return 'Колони';
-  return PALETTE.find((item) => item.type === element.type)?.label || 'Елемент';
+  if (element.type === 'columns') return 'Columns';
+  return PALETTE.find((item) => item.type === element.type)?.label || 'Element';
 }
 
 export function panelOpen(key) {

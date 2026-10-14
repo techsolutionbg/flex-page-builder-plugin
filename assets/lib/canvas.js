@@ -1,6 +1,8 @@
-const CANVAS_STYLE = 'html,body{overflow-x:clip}.corp-main--builder{padding-top:0;padding-bottom:0}[data-flex-page-builder-slot]{min-height:8rem}.fpb-element,.fpb-section,.fpb-columns,.fpb-column{position:relative;outline:1px dashed transparent;outline-offset:4px}.fpb-section,.fpb-columns,.fpb-column{display:grid;gap:.75rem;margin:.4rem 0;outline-color:#cbd5e1;min-width:0}.fpb-section{padding-block:2rem}.fpb-section .fpb-section{margin-block:.5rem;padding-block:1.25rem}.fpb-section-wallpaper{position:absolute;inset:0;z-index:0;pointer-events:none;background-position:center;background-repeat:no-repeat}.fpb-section-wallpaper.fpb-pattern{background-repeat:repeat;background-size:128px}.fpb-section-overlay{position:absolute;inset:0;z-index:1;pointer-events:none}.fpb-section-particles{position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none}.fpb-section-particles>canvas{display:block;width:100%;height:100%}.fpb-section>:not(.fpb-section-wallpaper):not(.fpb-section-overlay):not(.fpb-section-particles){position:relative;z-index:2}.fpb-section-body>.fpb-element:first-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-start:0}.fpb-section-body>.fpb-element:last-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-end:0}.fpb-section.fpb-section--full{width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:0}.fpb-section .fpb-section.fpb-section--full{width:100%;max-width:none;margin-inline:0}.fpb-section--boxed{box-sizing:border-box;width:100%;max-width:var(--corp-max-width,72rem);margin-inline:auto;padding-inline:var(--corp-gutter,clamp(1rem,4vw,2rem))}.fpb-is-hidden{opacity:.42;outline-color:#94a3b8}.fpb-section.fpb-is-hidden,.fpb-columns.fpb-is-hidden,.fpb-column.fpb-is-hidden{display:grid!important}.fpb-element.fpb-is-hidden{display:block!important}.fpb-is-hidden::after{content:"Скрита";position:absolute;z-index:4;top:.35rem;right:.45rem;padding:.15rem .4rem;border-radius:.25rem;background:#111827;color:#fff;font:600 .65rem/1.2 system-ui,sans-serif;pointer-events:none}.fpb-photo{position:relative;display:block;isolation:isolate;line-height:0}.fpb-photo img{display:block;width:100%;height:auto}.fpb-photo--grayscale img,.fpb-section-wallpaper.fpb-photo--grayscale,.fpb-section-wallpaper.fpb-photo--grayscale img{filter:grayscale(1)!important}.fpb-photo--tint::after,.fpb-section-wallpaper.fpb-photo--tint::after{content:"";position:absolute;inset:0;background:var(--fpb-tint,transparent);opacity:var(--fpb-tint-opacity,.4);mix-blend-mode:color;pointer-events:none}.fpb-element{cursor:pointer}.fpb-element.is-selected,.fpb-section.is-selected,.fpb-columns.is-selected,.fpb-column.is-selected{outline-color:#2563eb}.fpb-section-body,.fpb-column-body{display:grid;gap:1rem;min-height:4.5rem}.fpb-element>.fpb-drag,.fpb-section>.fpb-drag,.fpb-columns>.fpb-drag,.fpb-column>.fpb-drag{position:absolute;z-index:2;top:0;left:50%;width:1.7rem;height:.55rem;margin:0;padding:0;border:0;border-radius:999px;background:#2563eb;transform:translate(-50%,-80%);cursor:grab;opacity:0}.fpb-element:hover>.fpb-drag,.fpb-element.is-selected>.fpb-drag,.fpb-section:hover>.fpb-drag,.fpb-section.is-selected>.fpb-drag,.fpb-columns:hover>.fpb-drag,.fpb-columns.is-selected>.fpb-drag,.fpb-column:hover>.fpb-drag,.fpb-column.is-selected>.fpb-drag{opacity:1}.fpb-drag:active{cursor:grabbing}.fpb-drop-before{box-shadow:inset 0 3px 0 #2563eb}.fpb-drop-after{box-shadow:inset 0 -3px 0 #2563eb}.fpb-section-body.fpb-drop-inside,.fpb-column-body.fpb-drop-inside{outline:2px solid #2563eb}[contenteditable]{cursor:text}[contenteditable]:focus{outline:none}.fpb-empty{margin:0;padding:2.5rem 1rem;text-align:center;color:#6b7280}';
+const CANVAS_STYLE = 'html,body{overflow-x:clip}.corp-main--builder{padding-top:0;padding-bottom:0}[data-flex-page-builder-slot]{min-height:8rem}.fpb-element,.fpb-section,.fpb-columns,.fpb-column{position:relative;outline:1px dashed transparent;outline-offset:4px}.fpb-section,.fpb-columns,.fpb-column{display:grid;gap:.75rem;margin:.4rem 0;outline-color:#cbd5e1;min-width:0}.fpb-section{padding-block:2rem}.fpb-section .fpb-section{margin-block:.5rem;padding-block:1.25rem}.fpb-section-wallpaper{position:absolute;inset:0;z-index:0;pointer-events:none;background-position:center;background-repeat:no-repeat}.fpb-section-wallpaper.fpb-pattern{background-repeat:repeat;background-size:128px}.fpb-section-overlay{position:absolute;inset:0;z-index:1;pointer-events:none}.fpb-section-particles{position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none}.fpb-section-particles>canvas{display:block;width:100%;height:100%}.fpb-section>:not(.fpb-section-wallpaper):not(.fpb-section-overlay):not(.fpb-section-particles){position:relative;z-index:2}.fpb-section-body>.fpb-element:first-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-start:0}.fpb-section-body>.fpb-element:last-child :is(h1,h2,h3,h4,h5,h6,p){margin-block-end:0}.fpb-section.fpb-section--full{width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:0}.fpb-section .fpb-section.fpb-section--full{width:100%;max-width:none;margin-inline:0}.fpb-section--boxed{box-sizing:border-box;width:100%;max-width:var(--corp-max-width,72rem);margin-inline:auto;padding-inline:var(--corp-gutter,clamp(1rem,4vw,2rem))}.fpb-is-hidden{opacity:.42;outline-color:#94a3b8}.fpb-section.fpb-is-hidden,.fpb-columns.fpb-is-hidden,.fpb-column.fpb-is-hidden{display:grid!important}.fpb-element.fpb-is-hidden{display:block!important}.fpb-is-hidden::after{content:"Скрита";position:absolute;z-index:4;top:.35rem;right:.45rem;padding:.15rem .4rem;border-radius:.25rem;background:#111827;color:#fff;font:600 .65rem/1.2 system-ui,sans-serif;pointer-events:none}.fpb-photo{position:relative;display:block;isolation:isolate;line-height:0}.fpb-photo img{display:block;width:100%;height:auto}.fpb-photo img{filter:var(--fpb-image-filter,none)!important}.fpb-section-wallpaper{filter:var(--fpb-image-filter,none)}.fpb-photo--grayscale img,.fpb-section-wallpaper.fpb-photo--grayscale,.fpb-section-wallpaper.fpb-photo--grayscale img{filter:var(--fpb-image-filter,grayscale(1))!important}.fpb-photo--tint::after,.fpb-section-wallpaper.fpb-photo--tint::after{content:"";position:absolute;inset:0;background:var(--fpb-tint,transparent);opacity:var(--fpb-tint-opacity,.4);mix-blend-mode:color;pointer-events:none}.fpb-element{cursor:pointer}.fpb-element.is-selected,.fpb-section.is-selected,.fpb-columns.is-selected,.fpb-column.is-selected{outline-color:#2563eb}.fpb-section-body,.fpb-column-body{display:grid;gap:1rem;min-height:4.5rem}.fpb-column-resize{position:absolute;z-index:6;top:0;right:-12px;bottom:0;width:12px;margin:0;padding:0;border:0;background:transparent;cursor:col-resize;touch-action:none;opacity:0}.fpb-column-resize::after{position:absolute;top:25%;bottom:25%;left:5px;width:2px;border-radius:2px;background:#2563eb;content:""}.fpb-column:hover>.fpb-column-resize,.fpb-column-resize:focus-visible{opacity:1}.fpb-element>.fpb-drag,.fpb-section>.fpb-drag,.fpb-columns>.fpb-drag,.fpb-column>.fpb-drag{position:absolute;z-index:2;top:.2rem;left:.2rem;width:1.7rem;height:.55rem;margin:0;padding:0;border:0;border-radius:999px;background:#2563eb;transform:none;cursor:grab;opacity:0}.fpb-element:hover>.fpb-drag,.fpb-element.is-selected>.fpb-drag,.fpb-section:hover>.fpb-drag,.fpb-section.is-selected>.fpb-drag,.fpb-columns:hover>.fpb-drag,.fpb-columns.is-selected>.fpb-drag,.fpb-column:hover>.fpb-drag,.fpb-column.is-selected>.fpb-drag{opacity:1}.fpb-drag:active{cursor:grabbing}.fpb-drop-before{box-shadow:inset 0 3px 0 #2563eb}.fpb-drop-after{box-shadow:inset 0 -3px 0 #2563eb}.fpb-section-body.fpb-drop-inside,.fpb-column-body.fpb-drop-inside{outline:2px solid #2563eb}[contenteditable]{cursor:text}[contenteditable]:focus{outline:none}.fpb-empty{margin:0;padding:2.5rem 1rem;text-align:center;color:#6b7280}.fpb-section,.fpb-column{margin-block:0;padding-block:0}.fpb-section .fpb-section{margin-block:0;padding-block:0}.fpb-root,.fpb-section,.fpb-columns,.fpb-column,.fpb-section-body,.fpb-column-body{gap:0}.fpb-section,.fpb-columns,.fpb-column{margin-block:0}';
 
-const SELECTION_STYLE = '.fpb-delete{position:absolute;z-index:5;top:.2rem;right:.2rem;display:inline-flex;align-items:center;justify-content:center;width:1.65rem;height:1.65rem;margin:0;padding:0;border:1px solid var(--control-border,#526456);border-radius:.45rem;background:var(--control-bg,#1b2820);color:var(--control-text,#f2f5f1);line-height:0;cursor:pointer;box-shadow:0 2px 8px rgb(0 0 0 / 25%);transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}.fpb-delete svg{display:block;width:1rem;height:1rem}.fpb-delete:hover{border-color:var(--border-strong,#78917d);background:var(--surface-hover,#293a2f);transform:scale(1.05)}.fpb-delete:active{transform:scale(.96)}.fpb-delete:focus-visible{outline:2px solid var(--focus-ring,#8fb397);outline-offset:2px}';
+const SELECTION_STYLE = '.fpb-element-actions{position:absolute;z-index:7;top:.2rem;left:50%;display:flex;align-items:center;gap:.35rem;width:max-content;transform:translateX(-50%)}.fpb-delete,.fpb-column-add{position:static;display:inline-flex;align-items:center;justify-content:center;width:1.65rem;height:1.65rem;margin:0;padding:0;border:1px solid var(--control-border,#526456);border-radius:.45rem;background:var(--control-bg,#1b2820);color:var(--control-text,#f2f5f1);line-height:0;cursor:pointer;box-shadow:0 2px 8px rgb(0 0 0 / 25%);transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}.fpb-delete svg,.fpb-column-add svg{display:block;width:1rem;height:1rem}.fpb-delete:hover,.fpb-column-add:hover{border-color:var(--border-strong,#78917d);background:var(--surface-hover,#293a2f);transform:scale(1.05)}.fpb-delete:active,.fpb-column-add:active{transform:scale(.96)}.fpb-delete:focus-visible,.fpb-column-add:focus-visible{outline:2px solid var(--focus-ring,#8fb397);outline-offset:2px}';
+
+import {BASE} from './paths.js';
 
 function caretOffset(root) {
   const selection = root.ownerDocument.getSelection();
@@ -114,7 +116,8 @@ function sameIds(markup, slot) {
 
 function markSelected(slot, selected) {
   slot.querySelectorAll('.is-selected').forEach((node) => node.classList.remove('is-selected'));
-  slot.querySelectorAll('.fpb-delete').forEach((button) => button.remove());
+  slot.querySelectorAll('.fpb-element-actions').forEach((actions) => actions.remove());
+  slot.querySelectorAll('.fpb-delete, .fpb-column-add').forEach((button) => button.remove());
   const current = selected ? slot.querySelector('[data-fpb-id="' + CSS.escape(selected) + '"]') : null;
   if (!current) return;
   current.classList.add('is-selected');
@@ -123,6 +126,8 @@ function markSelected(slot, selected) {
   removeButton.className = 'fpb-delete';
   removeButton.setAttribute('aria-label', 'Изтрий елемента');
   removeButton.title = 'Изтрий елемента';
+  const actions = slot.ownerDocument.createElement('div');
+  actions.className = 'fpb-element-actions';
   const icon = slot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
   icon.setAttribute('viewBox', '0 0 24 24');
   icon.setAttribute('aria-hidden', 'true');
@@ -134,7 +139,36 @@ function markSelected(slot, selected) {
   path.setAttribute('stroke-linecap', 'round');
   icon.appendChild(path);
   removeButton.appendChild(icon);
-  current.appendChild(removeButton);
+  actions.appendChild(removeButton);
+  if (current.getAttribute('data-fpb-type') !== 'column') {
+    current.appendChild(actions);
+    return;
+  }
+  const makeAddButton = (side, className) => {
+    const button = slot.ownerDocument.createElement('button');
+    button.type = 'button';
+    button.className = 'fpb-column-add ' + className;
+    button.dataset.fpbColumnId = selected;
+    button.dataset.fpbSide = side;
+    button.setAttribute('aria-label', side === 'left' ? 'Добави колона вляво' : 'Добави колона вдясно');
+    button.title = side === 'left' ? 'Добави колона вляво' : 'Добави колона вдясно';
+    const svg = slot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const direction = slot.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+    direction.setAttribute('d', side === 'left' ? 'M14 5v14M10 12H4m0 0 3-3m-3 3 3 3' : 'M10 5v14M14 12h6m0 0-3-3m3 3-3 3');
+    direction.setAttribute('fill', 'none');
+    direction.setAttribute('stroke', 'currentColor');
+    direction.setAttribute('stroke-width', '2');
+    direction.setAttribute('stroke-linecap', 'round');
+    direction.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(direction);
+    button.appendChild(svg);
+    actions.appendChild(button);
+  };
+  makeAddButton('left', 'fpb-column-add--left');
+  makeAddButton('right', 'fpb-column-add--right');
+  current.appendChild(actions);
 }
 
 function animMs(node, name, fallback) {
@@ -169,16 +203,19 @@ function replayEntrance(node) {
 }
 
 export function createCanvas(host) {
-  const {React} = host;
+  const {React, request} = host;
   const h = React.createElement;
 
-  return function Canvas({frameHtml, markup, selected, motionPreview = '', onSelect, onInsert, onMove, onRemove, onText, dragKind}) {
+  return function Canvas({frameHtml, markup, selected, motionPreview = '', onSelect, onInsert, onMove, onRemove, onText, onResizeColumns, onAddAdjacentColumn, dragKind, pageId = null}) {
     const frame = React.useRef(null);
     const select = React.useRef(onSelect);
     const insert = React.useRef(onInsert);
     const move = React.useRef(onMove);
     const remove = React.useRef(onRemove);
     const write = React.useRef(onText);
+    const resizeWidths = React.useRef(onResizeColumns);
+    const addAdjacentColumn = React.useRef(onAddAdjacentColumn);
+    const suppressResizeClick = React.useRef(false);
     const painting = React.useRef(false);
     const applying = React.useRef(false);
     const textUndo = React.useRef([]);
@@ -191,6 +228,8 @@ export function createCanvas(host) {
     move.current = onMove;
     remove.current = onRemove;
     write.current = onText;
+    resizeWidths.current = onResizeColumns;
+    addAdjacentColumn.current = onAddAdjacentColumn;
     selectedRef.current = selected;
 
     React.useEffect(() => {
@@ -202,14 +241,113 @@ export function createCanvas(host) {
         if (!slot || slot.dataset.bound === '1') return;
         slot.dataset.bound = '1';
         doc.addEventListener('click', (event) => {
+          if (suppressResizeClick.current) {
+            event.preventDefault();
+            event.stopPropagation();
+            suppressResizeClick.current = false;
+            return;
+          }
           if (event.target.closest?.('.fpb-delete')) {
             event.preventDefault();
             event.stopPropagation();
             remove.current?.();
             return;
           }
+          const addColumn = event.target.closest?.('.fpb-column-add');
+          if (addColumn) {
+            event.preventDefault();
+            event.stopPropagation();
+            addAdjacentColumn.current?.(addColumn.dataset.fpbColumnId || '', addColumn.dataset.fpbSide || 'right');
+            return;
+          }
           const target = event.target.closest('[data-fpb-id]');
           select.current(target ? target.getAttribute('data-fpb-id') : null);
+        });
+        slot.addEventListener('pointerdown', (event) => {
+          const handle = event.target.closest?.('.fpb-column-resize');
+          if (!handle || event.button !== 0) return;
+          const id = handle.dataset.fpbColumnsId || '';
+          const boundary = Number(handle.dataset.fpbBoundary);
+          const columns = id ? slot.querySelector('[data-fpb-id="' + CSS.escape(id) + '"]') : null;
+          if (!columns || !Number.isInteger(boundary)) return;
+          const tracks = doc.defaultView.getComputedStyle(columns).gridTemplateColumns.match(/[\d.]+px/g)?.map((value) => Number.parseFloat(value)) || [];
+          if (tracks.length < 2 || boundary < 0 || boundary >= tracks.length - 1) return;
+          const total = tracks.reduce((sum, width) => sum + width, 0);
+          const pair = tracks[boundary] + tracks[boundary + 1];
+          if (total <= 0 || pair <= 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          suppressResizeClick.current = true;
+          const pointerId = event.pointerId;
+          const frameWindow = doc.defaultView;
+          const outerWindow = node.ownerDocument.defaultView;
+          try { handle.setPointerCapture(pointerId); } catch {}
+          const startX = event.clientX;
+          const originalTemplate = columns.style.gridTemplateColumns;
+          const widths = tracks.map((width) => width / total * 100);
+          let nextWidths = widths;
+          let changed = false;
+          let finished = false;
+          let lastX = startX;
+          const round = (value) => Math.round(value * 10) / 10;
+          const moveResize = (moveEvent) => {
+            if (finished || moveEvent.pointerId !== pointerId) return;
+            lastX = moveEvent.clientX;
+            const combined = widths[boundary] + widths[boundary + 1];
+            const minWidth = Math.min(5, combined / 2);
+            const nextLeft = Math.max(minWidth, Math.min(combined - minWidth, widths[boundary] + (moveEvent.clientX - startX) / total * 100));
+            nextWidths = [...widths];
+            nextWidths[boundary] = round(nextLeft);
+            nextWidths[boundary + 1] = round(combined - nextWidths[boundary]);
+            columns.style.gridTemplateColumns = nextWidths.map((width) => 'minmax(0,' + width + 'fr)').join(' ');
+            changed = true;
+          };
+          const fromOuterWindow = (pointerEvent) => ({
+            clientX: pointerEvent.clientX - node.getBoundingClientRect().left,
+            pointerId: pointerEvent.pointerId,
+            type: pointerEvent.type,
+          });
+          const moveOutside = (moveEvent) => moveResize(fromOuterWindow(moveEvent));
+          const finishOutside = (upEvent) => finishResize(fromOuterWindow(upEvent));
+          const cancelOutside = (cancelEvent) => cancelResize(cancelEvent);
+          const cleanupResize = () => {
+            frameWindow.removeEventListener('pointermove', moveResize);
+            frameWindow.removeEventListener('pointerup', finishResize);
+            frameWindow.removeEventListener('pointercancel', cancelResize);
+            outerWindow.removeEventListener('pointermove', moveOutside);
+            outerWindow.removeEventListener('pointerup', finishOutside);
+            outerWindow.removeEventListener('pointercancel', cancelOutside);
+            handle.removeEventListener('lostpointercapture', finishResize);
+            try { handle.releasePointerCapture(pointerId); } catch {}
+            setTimeout(() => { suppressResizeClick.current = false; }, 0);
+          };
+          const finishResize = (upEvent) => {
+            if (finished || upEvent.pointerId !== pointerId) return;
+            if (upEvent.type === 'pointerup' && upEvent.clientX !== lastX) moveResize(upEvent);
+            finished = true;
+            cleanupResize();
+            if (changed) {
+              const totalWidth = nextWidths.reduce((sum, width) => sum + width, 0);
+              if (totalWidth > 0 && nextWidths.every((width) => Number.isFinite(width) && width > 0)) {
+                const savedWidths = nextWidths.map((width) => round(width / totalWidth * 100));
+                savedWidths[savedWidths.length - 1] = round(100 - savedWidths.slice(0, -1).reduce((sum, width) => sum + width, 0));
+                resizeWidths.current?.(id, savedWidths);
+              }
+            }
+          };
+          const cancelResize = (cancelEvent) => {
+            if (finished || (cancelEvent?.pointerId != null && cancelEvent.pointerId !== pointerId)) return;
+            finished = true;
+            columns.style.gridTemplateColumns = originalTemplate;
+            cleanupResize();
+          };
+          frameWindow.addEventListener('pointermove', moveResize);
+          frameWindow.addEventListener('pointerup', finishResize);
+          frameWindow.addEventListener('pointercancel', cancelResize);
+          outerWindow.addEventListener('pointermove', moveOutside);
+          outerWindow.addEventListener('pointerup', finishOutside);
+          outerWindow.addEventListener('pointercancel', cancelOutside);
+          handle.addEventListener('lostpointercapture', finishResize);
         });
         slot.addEventListener('beforeinput', (event) => {
           if (applying.current || String(event.inputType || '').startsWith('history')) return;
@@ -312,6 +450,39 @@ export function createCanvas(host) {
     React.useEffect(() => {
       const node = frame.current;
       if (!node) return undefined;
+      function previewShortcodes(slot) {
+        slot.querySelectorAll('.fpb-shortcode-preview[data-fpb-shortcode]').forEach((preview) => {
+          const shortcode = preview.getAttribute('data-fpb-shortcode') || '';
+          if (!shortcode || preview.dataset.fpbPreviewCode === shortcode || preview.dataset.fpbPreviewPending === shortcode) return;
+          preview.dataset.fpbPreviewPending = shortcode;
+          const id = preview.closest('[data-fpb-id]')?.getAttribute('data-fpb-id');
+          request(BASE + '/shortcode-preview', 'POST', {shortcode, page_id: pageId}).then((payload) => {
+            const current = id ? slot.querySelector('[data-fpb-id="' + CSS.escape(id) + '"] .fpb-shortcode-preview') : null;
+            if (!current || current.getAttribute('data-fpb-shortcode') !== shortcode) return;
+            (Array.isArray(payload?.styles) ? payload.styles : []).forEach((href) => {
+              if (typeof href !== 'string' || !href) return;
+              const absolute = new URL(href, current.ownerDocument.baseURI).href;
+              if ([...current.ownerDocument.head.querySelectorAll('link[data-fpb-shortcode-style]')].some((link) => link.href === absolute)) return;
+              const link = current.ownerDocument.createElement('link');
+              link.rel = 'stylesheet';
+              link.href = absolute;
+              link.dataset.fpbShortcodeStyle = 'true';
+              current.ownerDocument.head.appendChild(link);
+            });
+            current.dataset.fpbPreviewCode = shortcode;
+            if (current.dataset.fpbPreviewPending === shortcode) delete current.dataset.fpbPreviewPending;
+            if (payload?.rendered && typeof payload.html === 'string') current.innerHTML = payload.html;
+            else current.textContent = shortcode;
+          }).catch(() => {
+            const current = id ? slot.querySelector('[data-fpb-id="' + CSS.escape(id) + '"] .fpb-shortcode-preview') : null;
+            if (!current || current.getAttribute('data-fpb-shortcode') !== shortcode) return;
+            current.dataset.fpbPreviewCode = shortcode;
+            if (current.dataset.fpbPreviewPending === shortcode) delete current.dataset.fpbPreviewPending;
+            current.textContent = shortcode;
+          });
+        });
+      }
+
       function paint() {
         if (painting.current) return;
         const doc = node.contentDocument;
@@ -358,6 +529,7 @@ export function createCanvas(host) {
           const editingId = editing?.closest('[data-fpb-id]')?.getAttribute('data-fpb-id') || '';
           if (editing && sameIds(markup, slot)) {
             markSelected(slot, selectedRef.current);
+            previewShortcodes(slot);
             return;
           }
           const editables = editing ? [...editing.closest('[data-fpb-id]').querySelectorAll('[contenteditable]')] : [];
@@ -365,6 +537,7 @@ export function createCanvas(host) {
           const offset = editing ? caretOffset(editing) : 0;
           slot.innerHTML = markup;
           markSelected(slot, selectedRef.current);
+          previewShortcodes(slot);
           if (editingId) {
             const next = [...(slot.querySelector('[data-fpb-id="' + CSS.escape(editingId) + '"]')?.querySelectorAll('[contenteditable]') || [])];
             const target = next[editingIndex] || next[0];
@@ -381,7 +554,7 @@ export function createCanvas(host) {
       node.addEventListener('load', paint);
       paint();
       return () => node.removeEventListener('load', paint);
-    }, [markup, frameHtml]);
+    }, [markup, frameHtml, pageId]);
 
     React.useEffect(() => {
       if (!motionPreview) {

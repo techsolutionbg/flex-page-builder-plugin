@@ -2,7 +2,7 @@
 
 A visual page builder for Flex CMS. Pages pick a theme layout and optionally a reusable builder header and footer. Empty header/footer means the theme chrome is used.
 
-Version: **0.1.0** · ID: `flex/page-builder` · Minimum Flex CMS version: **0.1.68**.
+Version: **0.0.2** · ID: `flex/page-builder` · Minimum Flex CMS version: **0.1.68**.
 
 GitHub repository: `techsolutionbg/flex-page-builder-plugin`.
 
