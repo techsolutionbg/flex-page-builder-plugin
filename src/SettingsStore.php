@@ -7,7 +7,7 @@ namespace Flex\PageBuilder;
 use Flex\Extension\V1\Time;
 use Illuminate\Database\{Connection, Eloquent\Model, Schema\Blueprint};
 
-/** Site-wide defaults and named button designs, shared by every page. */
+    /** Site-wide builder defaults, named button designs, and plugin behavior options. */
 final class SettingsStore
 {
     private Connection $db;
@@ -38,7 +38,8 @@ final class SettingsStore
     /**
      * @return array{
      *   defaults: array<string, array<string, mixed>>,
-     *   button_styles: list<array<string, mixed>>
+     *   button_styles: list<array<string, mixed>>,
+     *   allow_html_import: bool
      * }
      */
     public function load(): array
@@ -46,11 +47,11 @@ final class SettingsStore
         $this->install();
         $row = $this->db->table('flex_page_builder_settings')->where('id', 1)->first();
         if ($row === null) {
-            return ['defaults' => [], 'button_styles' => []];
+            return ['defaults' => [], 'button_styles' => [], 'allow_html_import' => false];
         }
         $document = json_decode((string) $row->document, true);
         if (!is_array($document)) {
-            return ['defaults' => [], 'button_styles' => []];
+            return ['defaults' => [], 'button_styles' => [], 'allow_html_import' => false];
         }
         $defaults = is_array($document['defaults'] ?? null) ? $document['defaults'] : [];
         $styles = is_array($document['button_styles'] ?? null) ? $document['button_styles'] : [];
@@ -58,6 +59,7 @@ final class SettingsStore
         return [
             'defaults' => is_array($defaults) ? $defaults : [],
             'button_styles' => array_is_list($styles) ? $styles : [],
+            'allow_html_import' => ($document['allow_html_import'] ?? false) === true,
         ];
     }
 
@@ -77,12 +79,13 @@ final class SettingsStore
      * @param array<string, array<string, mixed>> $defaults
      * @param list<array<string, mixed>> $buttonStyles
      */
-    public function save(array $defaults, array $buttonStyles = []): void
+    public function save(array $defaults, array $buttonStyles = [], bool $allowHtmlImport = false): void
     {
         $this->install();
         $encoded = json_encode([
             'defaults' => $defaults,
             'button_styles' => $buttonStyles,
+            'allow_html_import' => $allowHtmlImport,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $values = ['document' => $encoded, 'updated_at' => Time::now()];
         if ($this->db->table('flex_page_builder_settings')->where('id', 1)->exists()) {

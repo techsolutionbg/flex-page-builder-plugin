@@ -17,6 +17,7 @@
   "frontend": {
     "scripts": [
       "assets/admin.js",
+        "assets/lib/settings.js",
       "assets/lib/canvas.js",
       "assets/lib/chrome-admin.js",
       "assets/lib/chrome.js",

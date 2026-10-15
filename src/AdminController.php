@@ -134,7 +134,7 @@ final readonly class AdminController
         $settingsChanged = ($defaultsTouched && json_encode($defaults) !== json_encode($previousDefaults))
             || ($stylesTouched && json_encode($buttonStyles) !== json_encode($previousStyles));
         if ($settingsChanged) {
-            $settings->save($defaults, $buttonStyles);
+            $settings->save($defaults, $buttonStyles, $loaded['allow_html_import']);
             (new SitePublisher($store, $gateway, $this->media, $this->links))->republishExcept(
                 (int) $page->getAttribute('id'),
                 $defaults,

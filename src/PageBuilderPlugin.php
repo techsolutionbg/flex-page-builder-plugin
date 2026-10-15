@@ -64,6 +64,7 @@ final class PageBuilderPlugin implements PluginInterface, BootablePluginInterfac
         $context->routes?->admin('PUT', '/pages/{id:number}/chrome', AdminController::class, 'page-chrome');
         $context->routes?->admin('GET', '/pages/{id:number}/frame', AdminController::class, 'frame');
         $context->routes?->admin('GET', '/chrome', ChromeController::class, 'chrome-list');
+        $context->routes?->admin(['GET', 'PUT'], '/settings', SettingsController::class, 'settings');
         $context->routes?->admin('PUT', '/chrome', ChromeController::class, 'chrome-list-save');
         $context->routes?->admin('GET', '/chrome/frame', ChromeController::class, 'chrome-frame');
         $context->routes?->admin('POST', '/shortcode-preview', ChromeController::class, 'shortcode-preview');
@@ -75,6 +76,11 @@ final class PageBuilderPlugin implements PluginInterface, BootablePluginInterfac
 
         $context->admin?->page('chrome', 'Headers & Footers', 'assets/lib/chrome-admin.js', true, ['group' => 'content', 'icon' => 'file-text', 'order' => 20]);
         $context->admin?->page('editor', 'Page Builder', 'assets/admin.js', false, ['group' => 'content', 'icon' => 'file-text', 'hidden' => true]);
+        $context->admin?->extend('settings', 'screen.tab', 'settings', 'assets/lib/settings.js', [
+            'label' => 'Flex Page Builder',
+            'icon' => 'settings',
+            'order' => 70,
+        ]);
         // Row/editor entry points stay on links.js so a broken editor module cannot hide the buttons.
         $context->admin?->extend('pages.list', 'table.row-action', 'open', 'assets/lib/links.js', ['export' => 'createPageAction']);
         $context->admin?->panel('page.settings', 'chrome', 'Headers & Footers', 'assets/lib/page-chrome.js', [
