@@ -23,6 +23,7 @@
       "assets/lib/chrome.js",
       "assets/lib/compile.js",
       "assets/lib/editor.js",
+      "assets/lib/import-html.js",
       "assets/lib/globals.js",
       "assets/lib/inspector.js",
       "assets/lib/links.js",

@@ -46,7 +46,8 @@ final class DocumentStore
      *   header_id: ?string,
      *   footer_id: ?string,
      *   html_hash: string,
-     *   has_source: bool
+     *   has_source: bool,
+     *   theme_content_override: bool
      * }|null
      */
     public function get(int $pageId): ?array
@@ -64,6 +65,7 @@ final class DocumentStore
             'footer_id' => self::chromeId($document['footer_id'] ?? null),
             'html_hash' => (string) $row->html_hash,
             'has_source' => $row->source_html !== null,
+            'theme_content_override' => ($document['theme_content_override'] ?? false) === true,
         ];
     }
 
@@ -77,11 +79,14 @@ final class DocumentStore
         ?string $sourceHtml,
         ?string $headerId = null,
         ?string $footerId = null,
+        ?bool $themeContentOverride = null,
     ): void {
+        $existingDocument = $this->get($pageId);
         $payload = [
             'elements' => $elements,
             'header_id' => self::chromeId($headerId),
             'footer_id' => self::chromeId($footerId),
+            'theme_content_override' => $themeContentOverride ?? ($existingDocument['theme_content_override'] ?? false),
         ];
         $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         if (strlen($encoded) > self::MAX_BYTES) {

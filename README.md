@@ -10,6 +10,8 @@ GitHub repository: `techsolutionbg/flex-page-builder-plugin`.
 
 Requires an installed Flex CMS 0.1.68 or later with PHP 8.3+ and its database. The active theme must render a content slot when `flex_page_builder` is set, and must print saved builder HTML (a root with the class `fpb-root`) between that layout's header and footer. Themes that support builder chrome should honor `$flex_builder_header` / `$flex_builder_footer` (see below).
 
+For themes that generate page sections from templates, provide the preview content slot around those sections when `flex_page_builder` is true. If the plugin sets `$flex_builder_content_override`, render the saved `page.content` in that slot and skip the theme-generated page sections. This lets the editor import rendered, passive HTML from the preview and prevents duplicate sections after saving. RoofCraft implements this contract in `templates/page.twig`.
+
 Place the package in `plugins/flex/page-builder/`, with `plugin.json` directly inside that folder. From the Flex CMS root:
 
 ```sh
@@ -66,6 +68,8 @@ Menus stay available via `$flex_menu` / `$flex_menu_html` inside the theme heade
 Heading (H1–H6), paragraph, image, button, list, divider, spacer and HTML. Headings, paragraphs, buttons and lists have a text size in pixels; an empty size leaves the theme's size.
 
 The server compiler is the source of the saved HTML. Text is escaped. The HTML element drops scripts, frames, forms and inline event handlers.
+
+When **Import external HTML documents** is enabled in the plugin settings, new or externally changed pages with passive HTML are divided into selectable top-level blocks and nested HTML elements. Imported wrapper markup stays in place while its inner elements can be selected, renamed, moved, or deleted. Supported leaf text elements (such as headings, paragraphs, labels, and button text) can be edited directly in the preview; their containing markup and attributes stay in place. Documents containing PHP source, scripts, forms, event handlers, or other active markup stay in one read-only block; saving is disabled until that block is removed so the editor cannot silently discard behavior. Page Builder receives rendered page content, not the PHP source that produced it.
 
 ## Admin API
 

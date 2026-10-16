@@ -349,7 +349,7 @@
   padding: 0.45rem 0 0.9rem;
 }
 
-.fpb-tree > ul > li > button,
+.fpb-tree > ul > li > .fpb-tree-row,
 .fpb-tree > ul > li > ul {
   margin-left: 0.55rem;
   margin-right: 0.55rem;
@@ -411,7 +411,39 @@
   touch-action: none;
 }
 
-.fpb-tree ul ul > li > button::before {
+.fpb-tree-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.fpb-tree-row > button[data-fpb-id] {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.fpb-tree button.fpb-tree-collapse,
+.fpb-tree-collapse-spacer {
+  display: grid;
+  flex: 0 0 1.35rem;
+  place-items: center;
+  width: 1.35rem;
+  min-height: 1.65rem;
+  padding: 0;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.75rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.fpb-tree button.fpb-tree-collapse:hover {
+  background: var(--surface-hover, #eef2ed);
+  color: var(--text-primary, #172118);
+}
+
+.fpb-tree ul ul > li > .fpb-tree-row > button[data-fpb-id]::before {
   position: absolute;
   top: 50%;
   left: -0.55rem;

@@ -208,10 +208,16 @@ export function createInspector(host) {
         onClick: () => setStyle({align: desktop ? (value === 'left' ? null : value) : value}),
       }, h('svg', {viewBox: '0 0 24 24', width: 16, height: 16, 'aria-hidden': 'true'}, h('path', {d: path, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round'})))),
       isOverridden('align') ? h('button', {type: 'button', className: 'fpb-inherit', onClick: () => setStyle({align: null})}, t('Inherit')) : null);
+    const importedLocked = !isDefaults && ['html', 'imported_group'].includes(element.type) &&
+      (element.imported === true || element.opaque_external === true);
     const content = [];
     const typography = [];
     const hasTextStyle = ['heading', 'paragraph', 'button', 'list', 'menu', 'html', 'shortcode'].includes(element.type);
-    if (element.type === 'heading') {
+    if (importedLocked) {
+      content.push(h('p', {key: 'imported-html-note', className: 'fpb-muted'}, t(element.opaque_external
+        ? 'This external HTML is kept intact. Remove it before saving or wait for a later import phase.'
+        : 'The imported design stays intact. Edit supported text directly in the preview; you can also select, move, rename, or delete this block.')));
+    } else if (element.type === 'heading') {
       if (desktop) content.push(field('Ниво', h('select', {value: element.level == null ? '' : String(element.level), onChange: (event) => set({level: event.target.value === '' ? null : Number(event.target.value)})},
         [h('option', {value: ''}, t('Default')), ...[1, 2, 3, 4, 5, 6].map((level) => h('option', {key: level, value: String(level)}, 'H' + level))])));
       if (!isDefaults) content.push(field('Текст', h(C.Input, {value: element.text || '', onChange: (event) => set({text: event.target.value})})));
@@ -928,12 +934,14 @@ export function createInspector(host) {
         h(C.Button, {type: 'button', variant: 'secondary', onClick: onRemove}, t('Delete'))),
       ]],
       ['Съдържание', content],
-      ['Текст', typography],
-      ['Отстъп', spacing],
-      ['Вид', appearance],
-      ['Частици', particles],
-      ['Анимация', animation],
-      hover.length ? ['Hover', hover] : null,
+      ...(importedLocked ? [] : [
+        ['Текст', typography],
+        ['Отстъп', spacing],
+        ['Вид', appearance],
+        ['Частици', particles],
+        ['Анимация', animation],
+        hover.length ? ['Hover', hover] : null,
+      ]),
     ].filter((entry) => entry && entry[1].length);
     const sectionLabels = {
       'Позиция': 'Element',

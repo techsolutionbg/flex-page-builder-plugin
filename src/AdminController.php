@@ -74,7 +74,7 @@ final readonly class AdminController
             $footerId = $stored['footer_id'];
         } else {
             $state = 'changed';
-            $elements = [['id' => 'imported', 'type' => 'html', 'html' => $html]];
+            $elements = trim($html) === '' ? [] : [['id' => 'imported', 'type' => 'html', 'html' => $html]];
             $headerId = $stored['header_id'];
             $footerId = $stored['footer_id'];
         }
@@ -98,6 +98,7 @@ final readonly class AdminController
             'elements' => $elements,
             'defaults' => $compiler->normalizeDefaults($loaded['defaults']),
             'button_styles' => $compiler->normalizeButtonStyles($loaded['button_styles']),
+            'allow_html_import' => $loaded['allow_html_import'],
             'site_logos' => SiteLogo::urls($this->media),
             'base_hash' => $hash,
             'state' => $state,
@@ -121,6 +122,9 @@ final readonly class AdminController
         $settings = new SettingsStore();
         $loaded = $settings->load();
         $elements = $compiler->normalize($body['elements']);
+        if ($this->hasOpaqueExternalHtml($elements)) {
+            throw new \InvalidArgumentException('Remove the unsupported external HTML block before saving.', 422);
+        }
         $defaults = is_array($body['defaults'] ?? null)
             ? $compiler->normalizeDefaults($body['defaults'])
             : $compiler->normalizeDefaults($loaded['defaults']);
@@ -157,7 +161,7 @@ final readonly class AdminController
         $gateway->write($page, $compiled, $layout);
         $fresh = $gateway->find((int) $page->getAttribute('id'));
         $written = (string) $fresh->getAttribute('content');
-        $store->save((int) $page->getAttribute('id'), $elements, $written, $existing === null ? $html : null, $headerId, $footerId);
+        $store->save((int) $page->getAttribute('id'), $elements, $written, $existing === null ? $html : null, $headerId, $footerId, true);
 
         return $this->document($store, $chrome, $fresh);
     }
@@ -188,6 +192,21 @@ final readonly class AdminController
         }
 
         return $id;
+    }
+
+    /** @param list<array<string, mixed>> $elements */
+    private function hasOpaqueExternalHtml(array $elements): bool
+    {
+        foreach ($elements as $element) {
+            if (($element['opaque_external'] ?? false) === true) {
+                return true;
+            }
+            if (is_array($element['children'] ?? null) && $this->hasOpaqueExternalHtml($element['children'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, mixed> */

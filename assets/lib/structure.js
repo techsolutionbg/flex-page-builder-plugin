@@ -32,21 +32,39 @@ function playTreeFlip(root, before) {
   });
 }
 
-function structureRows(h, elements, selected, onSelect, nested, draggingId, device, t) {
+function structureRows(h, elements, selected, onSelect, nested, draggingId, device, t, collapsed, onToggle) {
   return elements.map((element, index) => {
     const hidden = deviceView(element, device).hidden === true;
+    const children = isContainer(element.type) ? (element.children || []) : [];
+    const hasChildren = children.length > 0;
+    const isCollapsed = collapsed[element.id] === true;
     return h('li', {
       key: element.id,
       'data-fpb-row': element.id,
     },
       !nested && index > 0 ? h('hr', {className: 'fpb-tree-rule'}) : null,
-      h('button', {
-        type: 'button',
-        className: [element.id === selected ? 'is-active' : '', hidden ? 'is-hidden' : ''].filter(Boolean).join(' '),
-        'data-fpb-id': element.id,
-        onClick: () => onSelect(element.id),
-      }, elementLabel(element, index, t), hidden ? h('span', {className: 'fpb-tree-hidden'}, t('Hidden')) : null),
-      isContainer(element.type) && (element.children || []).length ? h('ul', null, structureRows(h, element.children, selected, onSelect, true, draggingId, device, t)) : null);
+      h('div', {className: 'fpb-tree-row'},
+        hasChildren ? h('button', {
+          type: 'button',
+          className: 'fpb-tree-collapse',
+          'data-fpb-toggle': element.id,
+          'aria-label': t(isCollapsed ? 'Expand element' : 'Collapse element'),
+          'aria-expanded': !isCollapsed,
+          title: t(isCollapsed ? 'Expand element' : 'Collapse element'),
+          onPointerDown: (event) => event.stopPropagation(),
+          onClick: (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggle(element.id);
+          },
+        }, isCollapsed ? '▸' : '▾') : h('span', {className: 'fpb-tree-collapse-spacer', 'aria-hidden': 'true'}),
+        h('button', {
+          type: 'button',
+          className: [element.id === selected ? 'is-active' : '', hidden ? 'is-hidden' : ''].filter(Boolean).join(' '),
+          'data-fpb-id': element.id,
+          onClick: () => onSelect(element.id),
+        }, elementLabel(element, index, t), hidden ? h('span', {className: 'fpb-tree-hidden'}, t('Hidden')) : null)),
+      hasChildren && !isCollapsed ? h('ul', null, structureRows(h, children, selected, onSelect, true, draggingId, device, t, collapsed, onToggle)) : null);
   });
 }
 
@@ -58,6 +76,7 @@ export function createStructureTree(host) {
   return function StructureTree({elements, selected, onSelect, onMove, device = 'desktop'}) {
     const [preview, setPreview] = React.useState(null);
     const [draggingId, setDraggingId] = React.useState('');
+    const [collapsed, setCollapsed] = React.useState({});
     const origin = React.useRef(elements);
     const dest = React.useRef(null);
     const start = React.useRef(null);
@@ -93,6 +112,7 @@ export function createStructureTree(host) {
 
     function onPointerDown(event) {
       if (event.button !== 0) return;
+      if (event.target.closest?.('[data-fpb-toggle]')) return;
       const id = event.target.closest?.('[data-fpb-id]')?.getAttribute('data-fpb-id');
       if (!id) return;
       origin.current = elements;
@@ -155,6 +175,8 @@ export function createStructureTree(host) {
         event.preventDefault();
         event.stopPropagation();
       },
-    }, h('ul', null, structureRows(h, preview || elements, selected, onSelect, false, draggingId, device, t)));
+    }, h('ul', null, structureRows(h, preview || elements, selected, onSelect, false, draggingId, device, t, collapsed, (id) => {
+      setCollapsed((current) => ({...current, [id]: !current[id]}));
+    })));
   };
 }

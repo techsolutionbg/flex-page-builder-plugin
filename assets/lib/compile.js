@@ -1,4 +1,5 @@
 import {applyDefaults, GRADIENTS, PARTICLES, PATTERNS} from './model.js';
+import {nestedHtmlPreview} from './import-html.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[char]));
@@ -623,7 +624,7 @@ function leafHtml(element, selected, media, pages, menus, t) {
   } else if (element.type === 'spacer') {
     inner = '<div class="fpb-spacer" style="height:' + Math.max(8, Math.min(160, Number(element.height) || 32)) + 'px"></div>';
   } else if (element.type === 'html') {
-    inner = String(element.html || '');
+    inner = String(element.preview_html ?? element.html ?? '');
   } else if (element.type === 'shortcode') {
     const shortcode = String(element.shortcode || '');
     inner = '<div class="fpb-shortcode-preview" data-fpb-shortcode="' + escapeHtml(shortcode) + '">' + (shortcode ? escapeHtml(shortcode) : '<span class="fpb-muted">' + escapeHtml(t('Enter a shortcode')) + '</span>') + '</div>';
@@ -633,6 +634,21 @@ function leafHtml(element, selected, media, pages, menus, t) {
     inner = '<hr>';
   }
   return '<div class="fpb-element' + selectedClass + motionClass(element) + '" data-fpb-id="' + escapeHtml(element.id) + '" data-fpb-type="' + element.type + '"' + wrapperStyle(element, media) + '>' + dragHandle(t) + inner + '</div>';
+}
+
+function importedGroupHtml(element, selected, media, pages, menus, t) {
+  const children = (element.children || []).map((child) => {
+    if (child.type === 'imported_group') return importedGroupHtml(child, selected, media, pages, menus, t);
+    if (child.type === 'html') return nestedHtmlPreview(child.preview_html ?? child.html ?? '', child.id, 'html');
+    return leafHtml(child, selected, media, pages, menus, t);
+  });
+  let index = 0;
+  let html = String(element.html || '').replace(/<!--\s*fpb-slot\s*-->/g, () => children[index++] || '');
+  if (index < children.length) {
+    const extra = children.slice(index).join('');
+    html = html.replace(/<\/([a-z][a-z0-9:-]*)\s*>\s*$/i, extra + '</$1>');
+  }
+  return nestedHtmlPreview(html, element.id, 'imported_group');
 }
 
 function sectionHtml(element, selected, media, pages, menus, t) {
@@ -667,6 +683,7 @@ export function compile(elements, selected, media, defaults, pages, buttonStyles
     return '<p class="fpb-empty">' + escapeHtml(t('Add a section or drop an element here.')) + '</p>';
   }
   return tree.map((element) => {
+    if (element.type === 'imported_group') return importedGroupHtml(element, selected, media, pages, menus, t);
     if (element.type === 'section') return sectionHtml(element, selected, media, pages, menus, t);
     if (element.type === 'columns') return columnsHtml(element, selected, media, pages, menus, t);
     return leafHtml(element, selected, media, pages, menus, t);

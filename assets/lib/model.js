@@ -195,7 +195,7 @@ export function elementId() {
 }
 
 export function isContainer(type) {
-  return type === 'section' || type === 'columns' || type === 'column';
+  return type === 'section' || type === 'columns' || type === 'column' || type === 'imported_group';
 }
 
 export function emptyColumns(count) {
@@ -420,7 +420,7 @@ export function insertInto(elements, node, parentId, index) {
   }
   let found = false;
   const walk = (list) => list.map((element) => {
-    if (element.id === parent && (element.type === 'section' || element.type === 'column')) {
+    if (element.id === parent && (element.type === 'section' || element.type === 'column' || element.type === 'imported_group')) {
       found = true;
       const children = (element.children || []).slice();
       children.splice(Math.max(0, Math.min(index, children.length)), 0, node);
@@ -495,11 +495,11 @@ export function structureDrop(elements, movingId, targetId, where) {
     return {parentId: targetAt.parentId, index: targetAt.index + (where === 'after' ? 1 : 0)};
   }
   if (where === 'inside') {
-    if (target.type === 'section' || target.type === 'column') return {parentId: target.id, index: (target.children || []).length};
+    if (target.type === 'section' || target.type === 'column' || target.type === 'imported_group') return {parentId: target.id, index: (target.children || []).length};
     if (target.type === 'columns' && target.children?.[0]) return {parentId: target.children[0].id, index: (target.children[0].children || []).length};
     return null;
   }
   const parent = targetAt.parentId ? findElement(elements, targetAt.parentId) : null;
-  if (parent && parent.type !== 'section' && parent.type !== 'column') return null;
+  if (parent && parent.type !== 'section' && parent.type !== 'column' && parent.type !== 'imported_group') return null;
   return {parentId: targetAt.parentId, index: targetAt.index + (where === 'after' ? 1 : 0)};
 }

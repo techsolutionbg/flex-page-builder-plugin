@@ -2,6 +2,7 @@ import {createCanvas} from './canvas.js';
 import {compile} from './compile.js';
 import {createGlobalsPanel} from './globals.js';
 import {createInspector} from './inspector.js';
+import {editableHtmlPreview, importHtmlComponents} from './import-html.js';
 import {
   blank,
   crumbName,
@@ -64,10 +65,14 @@ export function createPage(host) {
     const [selected, setSelected] = React.useState(null);
     const collapseInspectorSections = React.useRef(null);
     const [frameHtml, setFrameHtml] = React.useState('');
+    const [builderReady, setBuilderReady] = React.useState(false);
     const [device, setDevice] = React.useState('desktop');
     const [failure, setFailure] = React.useState('');
     const [saving, setSaving] = React.useState(false);
     const [conflict, setConflict] = React.useState(false);
+    const [importNotice, setImportNotice] = React.useState('');
+    const [importBlocked, setImportBlocked] = React.useState(false);
+    const [themeImportPending, setThemeImportPending] = React.useState(false);
     const [media, setMedia] = React.useState({});
     const [siteLogos, setSiteLogos] = React.useState({light: '', dark: ''});
     const [defaults, setDefaults] = React.useState({});
@@ -101,12 +106,36 @@ export function createPage(host) {
       if (chromeOnly) return undefined;
       const abort = new AbortController();
       setFailure('');
+      setBuilderReady(false);
+      setImportNotice('');
+      setImportBlocked(false);
+      setThemeImportPending(false);
       setEditingChrome(null);
       request(BASE + '/pages/' + id, 'GET', undefined, abort.signal)
         .then((payload) => {
           setData(payload);
           setSiteLogos(payload.site_logos && typeof payload.site_logos === 'object' ? payload.site_logos : {light: '', dark: ''});
-          setElements(Array.isArray(payload.elements) ? payload.elements : []);
+          const savedElements = Array.isArray(payload.elements) ? payload.elements : [];
+          const hasExternalDocument = ['new', 'changed'].includes(payload.state);
+          const rawHtml = savedElements.length === 1 && savedElements[0]?.type === 'html'
+            ? String(savedElements[0].html || '')
+            : '';
+          const importEnabled = payload.allow_html_import === true;
+          const imported = hasExternalDocument && importEnabled && rawHtml ? importHtmlComponents(rawHtml, t) : null;
+          const importThemeMarkup = hasExternalDocument && importEnabled && !rawHtml;
+          setElements(imported ? imported.elements : savedElements);
+          setThemeImportPending(importThemeMarkup);
+          let importNotice = imported?.notice || '';
+          if (!importNotice && hasExternalDocument && rawHtml && !importEnabled) {
+            importNotice = t('HTML recognition is disabled. Enable it in the Page Builder settings and save the setting before reopening this page.');
+          } else if (!importNotice && importThemeMarkup) {
+            importNotice = t('Reading the visible page content from the active theme…');
+          } else if (!importNotice && hasExternalDocument && !rawHtml) {
+            importNotice = t('This page has no HTML content for Page Builder to import. The visible page is rendered by the active theme.');
+          }
+          setImportNotice(importNotice);
+          setImportBlocked(imported?.blocked === true);
+          if (imported?.decomposed) changed?.();
           setDefaults(payload.defaults && typeof payload.defaults === 'object' ? payload.defaults : {});
           setButtonStyles(Array.isArray(payload.button_styles) ? payload.button_styles : []);
           setLayout(payload.page?.layout || payload.layouts?.[0]?.id || 'default');
@@ -116,6 +145,7 @@ export function createPage(host) {
           baseHash.current = payload.base_hash || '';
           setSelected(null);
           setGlobalStyleId(null);
+          setBuilderReady(true);
         })
         .catch((error) => {
           if (!abort.signal.aborted) setFailure(t(error.message));
@@ -123,10 +153,24 @@ export function createPage(host) {
       return () => abort.abort();
     }, [id, chromeOnly]);
 
+    function importThemeSource(html) {
+      const imported = importHtmlComponents(html, t);
+      setThemeImportPending(false);
+      setElements(imported.elements);
+      setImportNotice(imported.notice || (String(html || '').trim()
+        ? t('The active theme content could not be imported safely.')
+        : t('The active theme did not provide any visible page sections for import.')));
+      setImportBlocked(imported.blocked === true);
+      if (imported.decomposed) changed?.();
+    }
+
     React.useEffect(() => {
       if (!chromeOnly || !chromeId) return undefined;
       const abort = new AbortController();
       setFailure('');
+      setBuilderReady(false);
+      setImportNotice('');
+      setImportBlocked(false);
       Promise.all([
         request(BASE + '/chrome/' + chromeId, 'GET', undefined, abort.signal),
         request(BASE + '/chrome', 'GET', undefined, abort.signal),
@@ -149,6 +193,7 @@ export function createPage(host) {
           });
           setSelected(null);
           setLeftTab('elements');
+          setBuilderReady(true);
         })
         .catch((error) => {
           if (!abort.signal.aborted) setFailure(t(error.message));
@@ -234,7 +279,7 @@ export function createPage(host) {
             parent = null;
             at = tree.length;
           }
-        } else if (current?.type === 'section' || current?.type === 'column') {
+        } else if (current?.type === 'section' || current?.type === 'column' || current?.type === 'imported_group') {
           parent = current.id;
           at = (current.children || []).length;
         } else if (current?.type === 'columns') {
@@ -280,6 +325,11 @@ export function createPage(host) {
     }
 
     function editText(id, patch) {
+      if (typeof patch.importedHtml === 'string') {
+        const html = patch.importedHtml;
+        mark(patchElement(activeElements, id, {html, preview_html: editableHtmlPreview(html)}));
+        return;
+      }
       mark(patchElement(activeElements, id, patch));
     }
 
@@ -301,6 +351,10 @@ export function createPage(host) {
 
     function remove() {
       mark(removeElement(activeElements, selected));
+      if (importBlocked && selected === 'imported') {
+        setImportBlocked(false);
+        setImportNotice('');
+      }
       setSelected(null);
     }
 
@@ -371,6 +425,8 @@ export function createPage(host) {
         });
         setData(payload);
         setElements(Array.isArray(payload.elements) ? payload.elements : []);
+        setImportNotice('');
+        setImportBlocked(false);
         setDefaults(payload.defaults && typeof payload.defaults === 'object' ? payload.defaults : defaults);
         setButtonStyles(Array.isArray(payload.button_styles) ? payload.button_styles : buttonStyles);
         setHeaderId(payload.page?.header_id || '');
@@ -517,9 +573,10 @@ export function createPage(host) {
                     ...footers.map((item) => h('option', {key: item.id, value: item.id}, item.name || 'Footer'))])))),
         h('div', {className: 'fpb-devices', role: 'group', 'aria-label': t('Preview width')},
           WIDTHS.map((item) => h('button', {key: item.id, type: 'button', className: item.id === device ? 'is-active' : '', 'aria-label': t(item.label), title: t(item.label), onClick: () => setDevice(item.id)}, deviceIcon(item.id), h('span', null, t(item.label))))),
-        h(C.LoadingButton, {type: 'button', loading: saving, onClick: () => save(false)}, t('Save'))),
+        h(C.LoadingButton, {type: 'button', loading: saving, disabled: importBlocked, onClick: () => save(false)}, t('Save'))),
       failure ? h('div', {className: 'react-form-error', role: 'alert'}, failure) : null,
       !editingChrome && data.state === 'changed' ? h('div', {className: 'fpb-notice', role: 'status'}, t('This page was changed outside Page Builder. Saving will replace its content with the builder elements.')) : null,
+      importNotice ? h('div', {className: 'fpb-notice', role: importBlocked ? 'alert' : 'status'}, importNotice) : null,
       h('div', {className: 'fpb-workspace' + (panels.palette ? '' : ' is-palette-closed') + (panels.side ? '' : ' is-side-closed')},
         h('aside', {className: 'fpb-palette' + (panels.palette ? '' : ' is-closed')},
           h('div', {className: 'fpb-panel-head' + (current ? ' fpb-panel-head--inspector' : '')},
@@ -540,7 +597,7 @@ export function createPage(host) {
           panels.palette ? paletteBody() : null),
         h('div', {className: 'fpb-canvas'},
           h('div', {className: 'fpb-stage', style: {width}},
-            h(Canvas, {frameHtml, markup: compile(activeElements, selected, {...media, site_logo: siteLogos}, defaults, pagePaths, buttonStyles, data.menus || [], t), selected, motionPreview, pageId: chromeOnly ? null : id, onSelect: (nextId) => { setSelected(nextId); if (nextId) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onRemove: remove, onText: editText, onResizeColumns: resizeColumnWidths, onAddAdjacentColumn: addAdjacentColumn, dragKind}))),
+            h(Canvas, {frameHtml, markup: compile(activeElements, selected, {...media, site_logo: siteLogos}, defaults, pagePaths, buttonStyles, data.menus || [], t), selected, motionPreview, pageId: chromeOnly ? null : id, ready: builderReady, themeImportPending: !chromeOnly && themeImportPending, onImportTheme: importThemeSource, onSelect: (nextId) => { setSelected(nextId); if (nextId) setLeftTab('elements'); }, onInsert: insert, onMove: reorder, onRemove: remove, onText: editText, onResizeColumns: resizeColumnWidths, onAddAdjacentColumn: addAdjacentColumn, dragKind}))),
         h('aside', {className: 'fpb-side' + (panels.side ? '' : ' is-closed')},
           h('div', {className: 'fpb-panel-head'}, h('p', null, t('Structure')), panelToggle('side', 'Hide structure', 'Show structure')),
           panels.side ? h('hr', {className: 'fpb-panel-rule'}) : null,

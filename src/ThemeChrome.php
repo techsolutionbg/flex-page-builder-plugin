@@ -23,6 +23,7 @@ final class ThemeChrome
         if (($data['flex_page_builder_chrome_preview'] ?? false) === true) {
             $data['flex_builder_header'] = null;
             $data['flex_builder_footer'] = null;
+            $data['flex_builder_content_override'] = false;
 
             return $data;
         }
@@ -42,6 +43,11 @@ final class ThemeChrome
             $stored = $this->documents->get($pageId);
             $headerId = is_string($stored['header_id'] ?? null) ? $stored['header_id'] : null;
             $footerId = is_string($stored['footer_id'] ?? null) ? $stored['footer_id'] : null;
+            $data['flex_builder_content_override'] = ($data['flex_page_builder'] ?? false) === true
+                ? false
+                : (($stored['theme_content_override'] ?? false) === true);
+        } else {
+            $data['flex_builder_content_override'] = false;
         }
         $data['flex_builder_header'] = $this->resolve($headerId, 'header');
         $data['flex_builder_footer'] = $this->resolve($footerId, 'footer');

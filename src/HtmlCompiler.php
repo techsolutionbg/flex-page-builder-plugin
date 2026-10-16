@@ -7,7 +7,7 @@ namespace Flex\PageBuilder;
 /** Turns the builder document into the HTML stored on the page. */
 final class HtmlCompiler
 {
-    public const TYPES = ['section', 'columns', 'column', 'heading', 'paragraph', 'image', 'button', 'list', 'menu', 'divider', 'spacer', 'html', 'shortcode'];
+    public const TYPES = ['section', 'columns', 'column', 'imported_group', 'heading', 'paragraph', 'image', 'button', 'list', 'menu', 'divider', 'spacer', 'html', 'shortcode'];
 
     public const STYLE_KEYS = [
         'size', 'line_height', 'weight', 'font_family', 'align', 'text_width', 'vertical_align', 'level', 'height', 'full_width', 'hidden', 'column_widths',
@@ -262,6 +262,20 @@ final class HtmlCompiler
                 ? $element['id']
                 : bin2hex(random_bytes(8));
             $type = $element['type'];
+            if ($type === 'imported_group') {
+                if ($context === 'columns') {
+                    throw new \InvalidArgumentException('Invalid element.', 422);
+                }
+                $children = is_array($element['children'] ?? null) ? $element['children'] : [];
+                $normalized[] = [
+                    'id' => $id,
+                    'type' => 'imported_group',
+                    'html' => mb_substr((string) ($element['html'] ?? ''), 0, 200000),
+                    'imported' => true,
+                    'children' => $this->nodes($children, 'imported_group'),
+                ] + self::label($element) + self::visibility($element) + self::breakpoints($element, 'imported_group');
+                continue;
+            }
             if ($type === 'section') {
                 if ($context !== 'root' && $context !== 'section') {
             throw new \InvalidArgumentException('Invalid element.', 422);
@@ -392,7 +406,15 @@ final class HtmlCompiler
             return ['type' => 'shortcode', 'shortcode' => $shortcode] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
         }
 
-        return ['type' => 'html', 'html' => mb_substr((string) ($element['html'] ?? ''), 0, 20000)] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
+        $imported = ($element['imported'] ?? false) === true;
+        $maxHtmlLength = $imported ? 200000 : 20000;
+
+        return [
+            'type' => 'html',
+            'html' => mb_substr((string) ($element['html'] ?? ''), 0, $maxHtmlLength),
+            'imported' => $imported,
+            'opaque_external' => ($element['opaque_external'] ?? false) === true,
+        ] + self::typography($element) + self::textEffects($element) + self::appearance($element) + self::motion($element);
     }
 
     /** @param array<string, mixed> $element */
@@ -400,6 +422,24 @@ final class HtmlCompiler
     private function element(array $element, callable $mediaUrl, ?callable $pageUrl = null, array $siteLogos = []): string
     {
         $id = htmlspecialchars((string) $element['id'], ENT_QUOTES, 'UTF-8');
+        if ($element['type'] === 'imported_group') {
+            $children = [];
+            foreach ($element['children'] as $child) {
+                $children[] = $child['type'] === 'html'
+                    ? self::cleanHtml((string) $child['html'])
+                    : $this->element($child, $mediaUrl, $pageUrl, $siteLogos);
+            }
+            $index = 0;
+            $html = preg_replace_callback('/<!--\s*fpb-slot\s*-->/', static function () use (&$index, $children): string {
+                return $children[$index++] ?? '';
+            }, (string) $element['html']) ?? '';
+            if ($index < count($children)) {
+                $extra = implode('', array_slice($children, $index));
+                $html = preg_replace('/<\/([a-z][a-z0-9:-]*)\s*>\s*$/i', $extra . '</$1>', $html, 1) ?? $html . $extra;
+            }
+
+            return self::cleanHtml($html);
+        }
         if ($element['type'] === 'section' || $element['type'] === 'columns' || $element['type'] === 'column') {
             $children = '';
             foreach ($element['children'] as $child) {
